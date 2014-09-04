@@ -91,6 +91,7 @@ Node* Quadtree_add_helper(Node* node, Point* p) {
     int quadrant = get_quadrant(&node->center, p);
     Node* new_node = (Node*)Quadtree_create(0.5 * node-> length, *p);
     new_node->down = down_clone;
+    down_clone->up = new_node;
     new_node->parent = node;
 
     if (node->children[quadrant] == NULL) {
