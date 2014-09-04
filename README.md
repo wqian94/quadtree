@@ -1,4 +1,4 @@
-quadtrees
+quadtree
 =========
 
 Skip Quadtrees
