@@ -3,57 +3,16 @@ Serial Skip Quadtree implementation
 */
 
 #include <assert.h>
-#include <stdbool.h>
 #include <stdlib.h>
 
+#include "../types.h"
 #include "../Quadtree.h"
 #include "../Point.h"
-#include "../types.h"
 
-/*
- * in_range
- *
- * Returns true if p is within the boundaries of n, false otherwise.
- *
- * On-boundary counts as being within if on the left or bottom boundaries
- *
- * n - the square node to check at
- * p - the point to check for
- */
-static inline bool in_range(Node* n, Point* p) {
-    return n->center.x - n->length / 2 <= p->x &&
-        n->center.x + n->length / 2 > p->x &&
-        n->center.y - n->length / 2 <= p->y &&
-        n->center.y + n->length / 2 > p->y;
-}
-
-/*
- * get_quadrant
- *
- * Returns the quadrant [0,4) that p is in, relative to the origin point
- *
- * origin - the point representing the origin of the bounding square
- * p - the point we're trying to find the quadrant of
- */
-static inline int get_quadrant(Point* origin, Point* p) {
-    return ((p->x < origin->x) != (p->y < origin->y)) + 2 * (p->y < origin->y);
-}
-
-/*
- * get_new_center
- *
- * Given the current node and a quadrant, returns the Point representing
- * the center of the square that represents that quadrant
- *
- * node - the parent node
- * quadrant - the quadrant to search for; must be in range [0,4)
- */
-static inline Point get_new_center(Node* node, int quadrant) {
-    return (Point){
-        .x = node->center.x + 0.5 - (((quadrant + 1) % 4) / 2),  // taking advantage of integer division
-        .y = node->center.y + 0.5 - ((quadrant % 4) / 2)
-        };
-}
+#ifdef QUADTREE_TEST
+extern uint32_t test_rand();
+#define rand() test_rand()
+#endif
 
 Quadtree* Quadtree_create(float64_t length, Point center) {
     Quadtree* qtree = (Quadtree*)malloc(sizeof(Quadtree));
@@ -91,7 +50,8 @@ Node* Quadtree_add_helper(Node* node, Point* p) {
     int quadrant = get_quadrant(&node->center, p);
     Node* new_node = (Node*)Quadtree_create(0.5 * node-> length, *p);
     new_node->down = down_clone;
-    down_clone->up = new_node;
+    if (down_clone != NULL)
+        down_clone->up = new_node;
     new_node->parent = node;
 
     if (node->children[quadrant] == NULL) {
