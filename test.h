@@ -13,7 +13,11 @@ Testing suite utilities header
 
 #include "./types.h"
 #include "./assertions.h"
+#include "./util.h"
 #include "./Quadtree.h"
+
+extern uint32_t Marsaglia_rand();
+#define rand() Marsaglia_rand()
 
 typedef struct {
     bool on;

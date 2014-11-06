@@ -341,6 +341,51 @@ void test_quadtree_remove() {
     Quadtree_uproot(q1);
 }
 
+void test_randomized() {
+    char buffer[1000];
+    float64_t s1 = 16.0;  // size1; chose to use S instead of L
+    Point p1 = Point_create(0, 0);
+    Quadtree* q1 = Quadtree_create(s1, p1);
+
+    test_rand_off();
+
+    Point p2 = Point_create(1, 1);
+    Point p3 = Point_create(3, 3);
+    Point p4 = Point_create(2.5, 2.5);
+    Point p5 = Point_create(-2, -2);
+    Point p6 = Point_create(-2.1, -2.1);
+    Point p7 = Point_create(3.25, 1.25);
+
+    Quadtree_add(q1, &p2);
+    Quadtree_add(q1, &p3);
+    Quadtree_add(q1, &p4);
+    Quadtree_add(q1, &p5);
+    Quadtree_add(q1, &p6);
+    Quadtree_add(q1, &p7);
+
+    assertTrue(Quadtree_search(q1, &p3), "Quadtree_search(q1, p2)");
+    Quadtree_remove(q1, &p3);
+    assertFalse(Quadtree_search(q1, &p3), "Quadtree_search(q1, p2)");
+
+    assertTrue(Quadtree_search(q1, &p4), "Quadtree_search(q1, p2)");
+    Quadtree_remove(q1, &p4);
+    assertFalse(Quadtree_search(q1, &p4), "Quadtree_search(q1, p2)");
+
+    assertTrue(Quadtree_search(q1, &p5), "Quadtree_search(q1, p2)");
+    Quadtree_remove(q1, &p5);
+    assertFalse(Quadtree_search(q1, &p5), "Quadtree_search(q1, p2)");
+
+    assertTrue(Quadtree_search(q1, &p6), "Quadtree_search(q1, p2)");
+    Quadtree_remove(q1, &p6);
+    assertFalse(Quadtree_search(q1, &p6), "Quadtree_search(q1, p2)");
+
+    assertTrue(Quadtree_search(q1, &p7), "Quadtree_search(q1, p2)");
+    Quadtree_remove(q1, &p7);
+    assertFalse(Quadtree_search(q1, &p7), "Quadtree_search(q1, p2)");
+
+    Quadtree_uproot(q1);
+}
+
 int main(int argc, char* argv[]) {
     setbuf(stdout, 0);
     mtrace();
@@ -354,6 +399,7 @@ int main(int argc, char* argv[]) {
     start_test(test_quadtree_add, "Quadtree_add");
     start_test(test_quadtree_search, "Quadtree_search");
     start_test(test_quadtree_remove, "Quadtree_remove");
+    start_test(test_randomized, "Randomized (in-environment)");
 
     printf("\n[Ending tests]\n");
     printf("=============================================\n");

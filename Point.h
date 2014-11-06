@@ -5,6 +5,10 @@ Point
 #ifndef POINT_H
 #define POINT_H
 
+#ifdef QUADTREE_TEST_H
+#include <stdio.h>
+#endif
+
 #include "./types.h"
 
 #define abs(x) ((1 - 2 * ((x) < 0)) * (x))

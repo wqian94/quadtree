@@ -194,6 +194,10 @@ static inline void Node_string(Node* node, char* buffer) {
         (node->down == NULL ? "NO" : "YES"),
         (node->children[0] == NULL ? "NO" : "YES"), (node->children[1] == NULL ? "NO" : "YES"),
         (node->children[2] == NULL ? "NO" : "YES"), (node->children[3] == NULL ? "NO" : "YES"));
+    /*sprintf(buffer, "Node{is_square = %s, center = (%f, %f), length = %lf, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}}",
+        (node->is_square ? "YES" : "NO"), node->center.x, node->center.y, node->length,
+        node->parent, node->up, node->down,
+        node->children[0], node->children[1], node->children[2], node->children[3]);*/
 }
 #endif
 
