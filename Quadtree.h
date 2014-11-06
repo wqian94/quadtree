@@ -7,6 +7,7 @@ Interface for Quadtree data structure
 
 #include <stdio.h>
 
+#include "./util.h"
 #include "./types.h"
 #include "./Point.h"
 
@@ -35,6 +36,9 @@ struct SerialSkipQuadtreeNode_t {
     Node *parent;
     Node *up, *down;
     Node *children[4];
+#ifdef QUADTREE_TEST
+    uint64_t id;
+#endif
 };
 
 /*
@@ -43,6 +47,9 @@ typedef struct ParallelSkipQuadtreeNode_t Node;
 
 typedef Node Quadtree;
 
+#ifdef QUADTREE_TEST
+Node* Node_create(float64_t length, Point center);
+#endif
 Quadtree* Quadtree_create(float64_t length, Point center);
 bool Quadtree_search(Quadtree* node, Point* p);
 bool Quadtree_add(Quadtree* node, Point* p);

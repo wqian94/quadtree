@@ -20,6 +20,8 @@ static uint64_t TOTAL_ASSERTIONS = 0, PASSED_ASSERTIONS = 0;
 static inline void assert_long(char* file, int line, long long expected, long long actual, char* text) {
     printf("%s: line %4d: assert(%s == %lld)...", file, line, text, expected);
     fflush(stdout);
+    if (actual != expected)
+        printf("was actually %lld...", actual);
     printf("%s\n", actual == expected ? "OK" : " FAILED");
 
     TOTAL_ASSERTIONS++;
@@ -29,6 +31,8 @@ static inline void assert_long(char* file, int line, long long expected, long lo
 static inline void assert_double(char* file, int line, float64_t expected, float64_t actual, char* text) {
     printf("%s: line %4d: assert(%s == %lf)...", file, line, text, expected);
     fflush(stdout);
+    if (actual != expected)
+        printf("was actually %lf...", actual);
     printf("%s\n", actual == expected ? "OK" : " FAILED");
 
     TOTAL_ASSERTIONS++;
@@ -57,6 +61,8 @@ static inline void assert_point(char* file, int line, Point expected, Point actu
     printf("%s: line %4d: assert(%s == Point(%lf, %lf))...", file, line, text, expected.x, expected.y);
     fflush(stdout);
     bool equals = Point_equals(actual, expected);
+    if (!equals)
+        printf("was actually Point(%lf, %lf)...", actual.x, actual.y);
     printf("%s\n", equals ? "OK" : " FAILED");
 
     TOTAL_ASSERTIONS++;
@@ -64,7 +70,7 @@ static inline void assert_point(char* file, int line, Point expected, Point actu
 }
 
 static inline void assert_error(char* file, int line, char* text) {
-    printf("%s: line %4d: assert(%s)... FAILE...", file, line, text);
+    printf("%s: line %4d: assert(%s)... FAILED...\n", file, line, text);
 
     TOTAL_ASSERTIONS++;
 }
