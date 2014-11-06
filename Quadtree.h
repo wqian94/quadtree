@@ -48,15 +48,77 @@ typedef struct ParallelSkipQuadtreeNode_t Node;
 typedef Node Quadtree;
 
 #ifdef QUADTREE_TEST
+/*
+ * Node_create
+ *
+ * Allocates memory for and initializes an empty leaf node in the quadtree.
+ *
+ * length - the "length" of the node -- irrelevant for a leaf node, but necessary
+ *          for an internal node (square)
+ * center - the center of the node
+ *
+ * Returns a pointer to the created node.
+ */
 Node* Node_create(float64_t length, Point center);
 #endif
+
+/*
+ * Quadtree_create
+ *
+ * Allocates memory for and initializes an empty internal node in the quadtree.
+ *
+ * In SerialSkipQuadtree, this is implemented as a wrapper for Node_create, setting
+ * the resultant node's is_square boolean to true before returning it.
+ *
+ * length - the "length" of the node -- irrelevant for a leaf node, but necessary
+ *          for an internal node (square)
+ * center - the center of the node
+ *
+ * Returns a pointer to the created node.
+ */
 Quadtree* Quadtree_create(float64_t length, Point center);
+
+/*
+ * Quadtree_search
+ *
+ * Searches for p in the quadtree pointed to by node, within a certain error tolerance.
+ *
+ * node - the root node to start at
+ * p - the point we're searching for
+ *
+ * Returns whether p is in the quadtree represented by node.
+ */
 bool Quadtree_search(Quadtree* node, Point* p);
+
+/*
+ * Quadtree_add
+ *
+ * Adds p to the quadtree represented by node, the root.
+ *
+ * node - the root node of the tree to add to
+ * p - the point being added
+ *
+ * Returns whether the add was successful
+ */
 bool Quadtree_add(Quadtree* node, Point* p);
+
+/*
+ * Quadtree_remove
+ *
+ * Removes p from the quadtree represented by node, the root.
+ *
+ * node - the root node of the tree to remove from
+ * p - the point being removed
+ *
+ * Returns whether the remove was successful: false typically indicates that the node
+ * wasn't in the tree to begin with.
+ */
 bool Quadtree_remove(Quadtree* node, Point* p);
 
 /*
- * Uproot removes the entire tree after freeing every node
+ * Quadtree_uproot
+ *
+ * Uproot removes the entire tree after freeing every node.
  *
  * The freeing order is such that, if a free fails, retrying won't
  * cause memory leaks.
@@ -70,10 +132,12 @@ bool Quadtree_uproot(Quadtree* root);
  *
  * Returns true if p is within the boundaries of n, false otherwise.
  *
- * On-boundary counts as being within if on the left or bottom boundaries
+ * On-boundary counts as being within if on the left or bottom boundaries.
  *
  * n - the square node to check at
  * p - the point to check for
+ *
+ * Returns whether p is within the boundaries of n.
  */
 static inline bool in_range(Node* n, Point* p) {
     return n->center.x - n->length / 2 <= p->x &&
@@ -85,10 +149,12 @@ static inline bool in_range(Node* n, Point* p) {
 /*
  * get_quadrant
  *
- * Returns the quadrant [0,4) that p is in, relative to the origin point
+ * Returns the quadrant [0,4) that p is in, relative to the origin point.
  *
  * origin - the point representing the origin of the bounding square
  * p - the point we're trying to find the quadrant of
+ *
+ * Returns the quadrant that p is in, relative to origin.
  */
 static inline int get_quadrant(Point* origin, Point* p) {
     return ((p->x < origin->x) != (p->y < origin->y)) + 2 * (p->y < origin->y);
@@ -98,10 +164,12 @@ static inline int get_quadrant(Point* origin, Point* p) {
  * get_new_center
  *
  * Given the current node and a quadrant, returns the Point representing
- * the center of the square that represents that quadrant
+ * the center of the square that represents that quadrant.
  *
  * node - the parent node
  * quadrant - the quadrant to search for; must be in range [0,4)
+ *
+ * Returns the center point for the given quadrant of node.
  */
 static inline Point get_new_center(Node* node, int quadrant) {
     return (Point){
@@ -114,7 +182,7 @@ static inline Point get_new_center(Node* node, int quadrant) {
 /*
  * Node_string
  *
- * Writes value of node to the given string buffer
+ * Writes value of node to the given string buffer.
  *
  * node - the node to write
  * buffer - the buffer to write to
