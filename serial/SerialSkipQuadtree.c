@@ -185,9 +185,21 @@ bool Quadtree_add(Quadtree* node, Point* p) {
     return true;
 }
 
-
 // updates the pointers relating to the square if needed
-void update_square(Quadtree* node) {
+/*
+ * update_square
+ *
+ * Updates the provided node to ensure valid representation, but only if node is a square.
+ *
+ * In particular:
+ * - If node has only 1 child, we will replace the square with that one child.
+ * - If node has no children, we will delete the square, detroying a level if that square
+ *   was a root node, unless we're at the lowest-level square.
+ * - Otherwise, do nothing.
+ *
+ * node - the square that we're attempting to update
+ */
+static inline void update_square(Quadtree* node) {
     if (node == NULL || !node->is_square)
         return;
 
