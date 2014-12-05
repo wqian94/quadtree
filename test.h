@@ -7,6 +7,7 @@ Testing suite utilities header
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include <assert.h>
 #include <mcheck.h>

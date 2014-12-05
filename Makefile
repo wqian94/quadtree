@@ -17,12 +17,14 @@ NOW := $(shell date -u +%s)
 all: clean $(OBJS) main.o
 	$(CC) $(OBJS) main.o -O3 -o quadtree
 
-test: TESTFLAG := -DQUADTREE_TEST
-test: clean $(OBJS) test.o
-	$(CC) $(OBJS) test.o -DDEBUG -O0 -o $@
+test: testcompile
 	export MALLOC_TRACE=mtrace/mtrace.$(NOW); ./$@
 	$(RM) $@
 	mtrace mtrace/mtrace.$(NOW)
+
+testcompile: TESTFLAG := -DQUADTREE_TEST
+testcompile: clean $(OBJS) test.o
+	$(CC) $(OBJS) test.o -DDEBUG -O0 -o test
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(TESTFLAG)

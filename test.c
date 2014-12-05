@@ -386,6 +386,60 @@ void test_randomized() {
     Quadtree_uproot(q1);
 }
 
+void test_performance() {
+    char buffer[1000];
+    float64_t s1 = 16.0;  // size1; chose to use S instead of L
+    Point p1 = Point_create(0, 0);
+    Quadtree* q1 = Quadtree_create(s1, p1);
+
+    test_rand_off();
+
+    const uint64_t num_samples = 32;
+
+    double time_samples[num_samples];
+
+    uint64_t i;
+    for (i = 0; i < num_samples; i++) {
+        double x = 0.25 * s1 / (1 << i);  //(Marsaglia_random() - 0.5) * s1;
+        double y = 0.25 * s1 / (1 << i);  //(Marsaglia_random() - 0.5) * s1;
+        Point p = Point_create(x, y);
+        clock_t start = clock();
+        Quadtree_add(q1, &p);
+        clock_t end = clock();
+        time_samples[i] = ((double)(end - start)); // / CLOCKS_PER_SEC;
+        if (i)
+            time_samples[i] += time_samples[i - 1];
+    }
+
+    double time_samples_d1[num_samples - 1];  // first derivatives
+    for (i = 0; i < num_samples - 1; i++) {
+        time_samples_d1[i] = time_samples[i + 1] - time_samples[i];
+    }
+
+    double time_samples_d2[num_samples - 2];  // second derivatives
+    for (i = 0; i < num_samples - 2; i++) {
+        time_samples_d2[i] = time_samples_d1[i + 1] - time_samples_d1[i];
+    }
+
+    // expecting (1/(N+1))/(1/N) = N/(N+1) ratio
+    double ratios[num_samples - 3];  // ratios
+    for (i = 0; i < num_samples - 3; i++) {
+        ratios[i] = time_samples_d2[i + 1] / (time_samples_d2[i] ? time_samples_d2[i] : 1);
+    }
+
+    // N/(N+1) * (N+1)/(N+2) * ... telescopes to N/(N+M)
+    double ratio_product = 1;
+    for (i = 0; i < num_samples - 3; i++) {
+        ratio_product *= ratios[i] ? ratios[i] : 1;
+    }
+
+    printf("ratio_product: %lf\n%lu/%u = %lf, %lu/%u = %lf, %lu/%u = %lf\n",
+        ratio_product, num_samples - 3, 1, (num_samples - 3)/1.0,
+        num_samples - 2, 1, (num_samples - 2)/1.0, num_samples - 1, 1, (num_samples - 1)/1.0);
+
+    Quadtree_uproot(q1);
+}
+
 int main(int argc, char* argv[]) {
     setbuf(stdout, 0);
     mtrace();
@@ -400,6 +454,7 @@ int main(int argc, char* argv[]) {
     start_test(test_quadtree_search, "Quadtree_search");
     start_test(test_quadtree_remove, "Quadtree_remove");
     start_test(test_randomized, "Randomized (in-environment)");
+    start_test(test_performance, "Performance tests");
 
     printf("\n[Ending tests]\n");
     printf("=============================================\n");

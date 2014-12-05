@@ -52,7 +52,7 @@ bool Quadtree_search(Quadtree* node, Point* p) {
     // no such child on this level
     if (node->children[quadrant] == NULL) {
         // in case we didn't catch this earlier
-        if (Point_equals(node->center, *p))
+        if (!node->is_square && Point_equals(node->center, *p))
             return true;
         // move down a level and continue if possible
         else if (node->down != NULL)
@@ -61,20 +61,8 @@ bool Quadtree_search(Quadtree* node, Point* p) {
         return false;
     }
 
-    // check if the target child is a square; if it is, recurse on it
-    if (node->children[quadrant]->is_square) {
-        return Quadtree_search(node->children[quadrant], p);
-    }
-    // otherwise, check to see if the target child is what we're looking for
-    else if (Point_equals(node->children[quadrant]->center, *p)) {
-        return true;
-    }
-    // otherwise, try to move down a level and continue
-    else if (node->children[quadrant]->down != NULL) {  // not lowest-level tree
-        return Quadtree_search(node->children[quadrant]->down, p);
-    }
-    // if we're at bottom level, and nowhere else to go, then not found
-    return false;
+    // otherwise, recurse on quadrants
+    return Quadtree_search(node->children[quadrant], p);
 }
 
 Node* Quadtree_add_helper(Node* node, Point* p) {
