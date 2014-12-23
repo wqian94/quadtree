@@ -8,9 +8,11 @@ HEADERS := \
 	Point.h \
 	Quadtree.h
 
-OBJS := \
+OBJ_SERIAL := \
 	serial/SerialSkipQuadtree.o \
-	Point.o
+	serial/Point.o
+
+OBJS := $(OBJ_SERIAL)
 
 NOW := $(shell date -u +%s)
 

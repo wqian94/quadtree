@@ -2,7 +2,7 @@
 Point implementation
 */
 
-#include "./Point.h"
+#include "../Point.h"
 
 Point Point_create(float32_t x, float32_t y) {
     return (Point){.x = x, .y = y};
