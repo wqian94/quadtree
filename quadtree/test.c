@@ -318,25 +318,25 @@ void test_quadtree_remove() {
     Quadtree_remove(q1, &p2);
     assertFalse(Quadtree_search(q1, &p2), "Quadtree_search(q1, p2)");
 
-    assertTrue(Quadtree_search(q1, &p3), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p3), "Quadtree_search(q1, p3)");
     Quadtree_remove(q1, &p3);
-    assertFalse(Quadtree_search(q1, &p3), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p3), "Quadtree_search(q1, p3)");
 
-    assertTrue(Quadtree_search(q1, &p4), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p4), "Quadtree_search(q1, p4)");
     Quadtree_remove(q1, &p4);
-    assertFalse(Quadtree_search(q1, &p4), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p4), "Quadtree_search(q1, p4)");
 
-    assertTrue(Quadtree_search(q1, &p5), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p5), "Quadtree_search(q1, p5)");
     Quadtree_remove(q1, &p5);
-    assertFalse(Quadtree_search(q1, &p5), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p5), "Quadtree_search(q1, p5)");
 
-    assertTrue(Quadtree_search(q1, &p6), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p6), "Quadtree_search(q1, p6)");
     Quadtree_remove(q1, &p6);
-    assertFalse(Quadtree_search(q1, &p6), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p6), "Quadtree_search(q1, p6)");
 
-    assertTrue(Quadtree_search(q1, &p7), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p7), "Quadtree_search(q1, p7)");
     Quadtree_remove(q1, &p7);
-    assertFalse(Quadtree_search(q1, &p7), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p7), "Quadtree_search(q1, p7)");
 
     Quadtree_uproot(q1);
 }
@@ -363,25 +363,29 @@ void test_randomized() {
     Quadtree_add(q1, &p6);
     Quadtree_add(q1, &p7);
 
-    assertTrue(Quadtree_search(q1, &p3), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p2), "Quadtree_search(q1, p2)");
+    Quadtree_remove(q1, &p2);
+    assertFalse(Quadtree_search(q1, &p2), "Quadtree_search(q1, p2)");
+
+    assertTrue(Quadtree_search(q1, &p3), "Quadtree_search(q1, p3)");
     Quadtree_remove(q1, &p3);
-    assertFalse(Quadtree_search(q1, &p3), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p3), "Quadtree_search(q1, p3)");
 
-    assertTrue(Quadtree_search(q1, &p4), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p4), "Quadtree_search(q1, p4)");
     Quadtree_remove(q1, &p4);
-    assertFalse(Quadtree_search(q1, &p4), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p4), "Quadtree_search(q1, p4)");
 
-    assertTrue(Quadtree_search(q1, &p5), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p5), "Quadtree_search(q1, p5)");
     Quadtree_remove(q1, &p5);
-    assertFalse(Quadtree_search(q1, &p5), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p5), "Quadtree_search(q1, p5)");
 
-    assertTrue(Quadtree_search(q1, &p6), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p6), "Quadtree_search(q1, p6)");
     Quadtree_remove(q1, &p6);
-    assertFalse(Quadtree_search(q1, &p6), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p6), "Quadtree_search(q1, p6)");
 
-    assertTrue(Quadtree_search(q1, &p7), "Quadtree_search(q1, p2)");
+    assertTrue(Quadtree_search(q1, &p7), "Quadtree_search(q1, p7)");
     Quadtree_remove(q1, &p7);
-    assertFalse(Quadtree_search(q1, &p7), "Quadtree_search(q1, p2)");
+    assertFalse(Quadtree_search(q1, &p7), "Quadtree_search(q1, p7)");
 
     Quadtree_uproot(q1);
 }
