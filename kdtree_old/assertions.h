@@ -5,6 +5,7 @@ Auxilliary functions to help facilitate testing
 #ifndef ASSERTIONS_H
 #define ASSERTIONS_H
 
+#include "./constants.h"
 #include "./types.h"
 #include "./Point.h"
 
@@ -59,16 +60,15 @@ static inline void assert_false(char* file, int line, bool actual, char* text) {
 
 static inline void assert_point(char* file, int line, Point expected, Point actual, char* text) {
     register uint64_t i;
-    printf("%s: line %4d: assert(%s == ", file, line, text);
-    char buffer[1000];
-    Point_string(&expected, buffer);
-    printf("%s)...", buffer);
+    printf("%s: line %4d: assert(%s == Point(", file, line, text);
+    for (i = 0; i < D; i++)
+        printf("%lf%s", expected.val[i], i == D - 1 ? "))..." : ", ");
     fflush(stdout);
     bool equals = Point_equals(actual, expected);
     if (!equals) {
-        printf("was actually ");
-        Point_string(&expected, buffer);
-        printf("%s)...", buffer);
+        printf("was actually Point(");
+        for (i = 0; i < D; i++)
+            printf("%lf%s", actual.val[i], i == D - 1 ? ")..." : ", ");
     }
     printf("%s\n", equals ? "OK" : " FAILED");
 

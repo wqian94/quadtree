@@ -5,15 +5,12 @@ TESTFLAG :=
 
 HEADERS := \
 	types.h \
-    util.h \
 	Point.h \
-    Partition.h \
-	#KDtree.h
+	KDtree.h
 
 OBJ_SERIAL := \
-	serial/Point.o \
-    serial/Partition.o \
-	#serial/SerialSkipKDtree.o
+	serial/SerialSkipKDtree.o \
+	serial/Point.o
 
 OBJS := $(OBJ_SERIAL)
 

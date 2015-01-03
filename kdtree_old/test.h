@@ -15,9 +15,7 @@ Testing suite utilities header
 #include "./types.h"
 #include "./assertions.h"
 #include "./util.h"
-#include "./Point.h"
-#include "./Partition.h"
-//#include "./KDtree.h"
+#include "./KDtree.h"
 
 extern uint32_t Marsaglia_rand();
 #define rand() Marsaglia_rand()

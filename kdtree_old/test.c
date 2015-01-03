@@ -4,9 +4,10 @@ Testing suite for KDtrees
 
 #include "./test.h"
 
-//extern bool in_range(Node*, Point*);
+extern bool in_range(Node*, Point*);
+extern void Point_string(Point*, char*);
 
-/*void print_KDtree(KDtree* root) {
+void print_KDtree(KDtree* root) {
     printf("Node[id=%llu, center=(%lf, %lf), length=%lf, is_container=%d",
         (unsigned long long)root->id, root->center.val[0], root->center.val[1], root->length, root->is_container);
 
@@ -44,65 +45,8 @@ void test_sizes() {
     printf("\n===Testing KDtree size===\n");
     // KDtree is normally 72 + 8D bytes, but we add an id parameter for testing, so it is +8 bytes
     assertLong(72 + 8 * D + 8, sizeof(KDtree), "sizeof(KDtree)");
-}*/
-
-void test_point() {
-    register int32_t i;
-
-    printf("\n---1-D Point_create test---\n");
-    Point p1 = Point_create(1, (float64_t[]){1});
-    assertLong(1, p1.val[0], "p1.val[0]");
-
-    printf("\n---2-D Point_create test---\n");
-    Point p2 = Point_create(2, (float64_t[]){0, 1});
-    assertLong(0, p2.val[0], "p2.val[0]");
-    assertLong(1, p2.val[1], "p2.val[1]");
-
-    printf("\n---3-D Point_create test---\n");
-    Point p3 = Point_create(3, (float64_t[]){0, 1, 2});
-    assertLong(0, p3.val[0], "p3.val[0]");
-    assertLong(1, p3.val[1], "p3.val[1]");
-    assertLong(2, p3.val[2], "p3.val[2]");
-
-    printf("\n---10-D Point_create test---\n");
-    float64_t point_coords_10D[10];
-    for (i = 0; i < 10; i++)
-        point_coords_10D[i] = i * i;
-    Point p10 = Point_create(10, point_coords_10D);
-    for (i = 0; i < 10; i++) {
-        char buffer[20];
-        sprintf(buffer, "p10.val[%d]", i);
-        assertLong(i * i, p10.val[i], buffer);
-    }
-
-    Point_purge();
 }
 
-void test_partition() {
-    Partition p1 = Partition_create(2);
-    assertLong(2, p1.dim, "p1.dim");
-    assertLong(0, Partition_get(p1, 0), "Partition_get(p1, 0)");
-    assertLong(0, Partition_get(p1, 1), "Partition_get(p1, 1)");
-    assertTrue(Partition_equals(p1, p1), "Partition_equals(p1, p1)");
-
-    Partition p2 = Partition_create(2);
-    assertLong(2, p2.dim, "p2.dim");
-    assertLong(0, Partition_get(p2, 0), "Partition_get(p2, 0)");
-    assertLong(0, Partition_get(p2, 1), "Partition_get(p2, 1)");
-    assertTrue(Partition_equals(p1, p2), "Partition_equals(p1, p2)");
-    Partition_set(p2, 1, true);
-    assertLong(0, Partition_get(p2, 0), "Partition_get(p2, 0)");
-    assertLong(1, Partition_get(p2, 1), "Partition_get(p2, 1)");
-    assertFalse(Partition_equals(p1, p2), "Partition_equals(p1, p2)");
-
-    Partition p3 = Partition_create(3);
-    assertLong(3, p3.dim, "p3.dim");
-    assertFalse(Partition_equals(p1, p3), "Partition_equals(p1, p3)");
-
-    Partition_purge();
-}
-
-/*
 void test_in_range() {
     KDtree* node = KDtree_create(2.0, ((Point){0, 0}));
     Point p1 = ((Point){-1, -1});
@@ -483,18 +427,14 @@ void test_performance() {
         num_samples - 2, 1, (num_samples - 2)/1.0, num_samples - 1, 1, (num_samples - 1)/1.0);
 
     KDtree_uproot(q1);
-}*/
+}
 
 int main(int argc, char* argv[]) {
     setbuf(stdout, 0);
     mtrace();
     printf("[Beginning tests]\n");
     
-    /*start_test(test_sizes, "Struct sizes");
-    */
-    start_test(test_point, "Point tests");
-    start_test(test_partition, "Partition tests");
-    /*
+    start_test(test_sizes, "Struct sizes");
     start_test(test_in_range, "in_range");
     start_test(test_get_partition, "get_partition");
     start_test(test_get_new_center, "get_new_center");
@@ -503,7 +443,7 @@ int main(int argc, char* argv[]) {
     start_test(test_kdtree_search, "KDtree_search");
     start_test(test_kdtree_remove, "KDtree_remove");
     start_test(test_randomized, "Randomized (in-environment)");
-    start_test(test_performance, "Performance tests");*/
+    start_test(test_performance, "Performance tests");
 
     printf("\n[Ending tests]\n");
     printf("=============================================\n");

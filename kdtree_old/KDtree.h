@@ -7,16 +7,12 @@ Interface for KDtree data structure
 
 #include <stdio.h>
 
+#include "./constants.h"
 #include "./util.h"
 #include "./types.h"
 #include "./Point.h"
 
 typedef struct SerialSkipKDtreeNode_t Node;
-
-/*
- * struct BinaryNodeTree_t
- *
- * 
 
 /*
  * struct SerialSkipKDtreeNode_t
