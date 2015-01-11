@@ -2,12 +2,21 @@
 Serial Skip KDtree implementation
 */
 
+#ifndef SKIP_KDTREE_C
+#define SKIP_KDTREE_C
+#define SERIAL_SKIP_KDTREE_C
+
 #include <assert.h>
 #include <stdlib.h>
 
 #include "../types.h"
 #include "../KDtree.h"
 #include "../Point.h"
+
+typedef KDtree Tree;
+typedef KDnode Node;
+typedef LinkedList List;
+typedef BinaryTree BTree;
 
 // rand() functions
 #ifdef KDTREE_TEST
@@ -21,9 +30,43 @@ extern void Marsaglia_srand(uint32_t);
 #define srand(x) Marsaglia_srand(x)
 #endif
 
-Node* Node_create(float64_t length, Point center) {
+static inline bool in_range(Node* n, Point p, uint64_t D) {
+    register uint64_t i;
+    for (i = 0; i < D; i++) {
+        if (    p.val[i] <  n->center.val[i] - n->length / 2 ||
+                p.val[i] >= n->center.val[i] + n->length / 2)
+            return false;
+    }
+    return true;
+}
+
+static inline Partition get_partition(Point* origin, Point* p, uint64_t D) {
+    Partition part = Partition_create(D);
+    register uint64_t i;
+    for (i = 0; i < D; i++)
+        Partition_set(part, i, (p->val[i] < origin->val[i] ? LEFT : RIGHT));
+
+    return partition;
+}
+
+static inline Point get_new_center(Node* node, Partition partition, uint64_t D) {
+    Point p;
+
+    float64_t data[D];
+    register uint64_t i;
+    for (i = 0; i < D; i++)
+        p.val[i] = node->center.val[i] + (2 * (Partition_get(partition, i) == RIGHT) - 1) * 0.25 * node->length;
+
+    return p;
+}
+
+Tree KDtree_create(float64_t length, Point center, uint64_t D) {
+    return (Tree){.tree = NULL, .list = NULL, .D = D};
+}
+
+Node* Node_create(float64_t length, Point center, NodeType type, uint64_t D) {
     Node* node = (Node*)malloc(sizeof(Node));
-    *node = (Node){.is_container = false, .parent = NULL,
+    *node = (Node){.type = type, .parent = NULL,
         .up = NULL, .down = NULL, //.children is not initialized here
         .length = length, .center = center
 #ifdef KDTREE_TEST
@@ -34,12 +77,6 @@ Node* Node_create(float64_t length, Point center) {
     for (i = 0; i < N_PARTITIONS; i++)
         node->children[i] = NULL;
     return node;
-}
-
-KDtree* KDtree_create(float64_t length, Point center) {
-    KDtree* qtree = Node_create(length, center);
-    qtree->is_container = true;
-    return qtree;
 }
 
 bool KDtree_search(KDtree* node, Point* p) {
@@ -329,3 +366,5 @@ bool KDtree_uproot(KDtree* root) {
 
     return true;
 }
+
+#endif

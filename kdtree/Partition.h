@@ -18,7 +18,10 @@ Interface for Partition
  *
  * A simple data structure used for representing the dimension-by-dimension partitions.
  * In particular, this is a bitstring, with bit i representing dimension i, and the value
- * of that bit is 0 if the order for that partition is >=0, and 1 if <0.
+ * of that bit is 0 if the order for that partition is >=0, and 1 if <0. Thus, by
+ * default, a newly-constructed Partition is right-partitioned on every dimension.
+ *
+ * (This is all-right!)
  *
  * It also keeps track of how many dimensions it represents.
  *
@@ -34,6 +37,16 @@ typedef struct {
     void* target;
     PARTITION_BLOCK_TYPE* data;
 } Partition;
+
+/*
+ * PartitionType
+ *
+ * PartitionType is to make it easier to interface with the internal representation.
+ *
+ * LEFT indicates branching down, RIGHT indicates branching up. This will be translated
+ * between the actual representation by the functions.
+ */
+typedef enum {RIGHT, LEFT} PartitionType;
 
 /*
  * Partition_create
@@ -56,7 +69,7 @@ Partition Partition_create(uint64_t dimensions);
  * index - the index of the bit
  * value - the value to set the bit to
  */
-void Partition_set(Partition p, uint64_t index, bool value);
+void Partition_set(Partition p, uint64_t index, PartitionType value);
 
 /*
  * Partition_get
@@ -65,7 +78,7 @@ void Partition_set(Partition p, uint64_t index, bool value);
  * p - the Partition with the data to use
  * index - the index of the bit
  */
-bool Partition_get(Partition p, uint64_t index);
+PartitionType Partition_get(Partition p, uint64_t index);
 
 /*
  * Partition_destroy

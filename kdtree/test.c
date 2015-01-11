@@ -81,18 +81,18 @@ void test_point() {
 void test_partition() {
     Partition p1 = Partition_create(2);
     assertLong(2, p1.dim, "p1.dim");
-    assertLong(0, Partition_get(p1, 0), "Partition_get(p1, 0)");
-    assertLong(0, Partition_get(p1, 1), "Partition_get(p1, 1)");
+    assertLong(RIGHT, Partition_get(p1, 0), "Partition_get(p1, 0)");
+    assertLong(RIGHT, Partition_get(p1, 1), "Partition_get(p1, 1)");
     assertTrue(Partition_equals(p1, p1), "Partition_equals(p1, p1)");
 
     Partition p2 = Partition_create(2);
     assertLong(2, p2.dim, "p2.dim");
-    assertLong(0, Partition_get(p2, 0), "Partition_get(p2, 0)");
-    assertLong(0, Partition_get(p2, 1), "Partition_get(p2, 1)");
+    assertLong(RIGHT, Partition_get(p2, 0), "Partition_get(p2, 0)");
+    assertLong(RIGHT, Partition_get(p2, 1), "Partition_get(p2, 1)");
     assertTrue(Partition_equals(p1, p2), "Partition_equals(p1, p2)");
-    Partition_set(p2, 1, true);
-    assertLong(0, Partition_get(p2, 0), "Partition_get(p2, 0)");
-    assertLong(1, Partition_get(p2, 1), "Partition_get(p2, 1)");
+    Partition_set(p2, 1, LEFT);
+    assertLong(RIGHT, Partition_get(p2, 0), "Partition_get(p2, 0)");
+    assertLong(LEFT, Partition_get(p2, 1), "Partition_get(p2, 1)");
     assertFalse(Partition_equals(p1, p2), "Partition_equals(p1, p2)");
 
     Partition p3 = Partition_create(3);

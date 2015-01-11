@@ -37,8 +37,8 @@ Partition Partition_create(uint64_t dimensions) {
     return p;
 }
 
-void Partition_set(Partition p, uint64_t index, bool value) {
-    char val = !!value; // 0 if value == 0, 1 otherwise
+void Partition_set(Partition p, uint64_t index, PartitionType value) {
+    char val = (value == LEFT) ? 1 : 0; // 1 if left, 0 if right
     uint64_t byte_off = index / sizeof(PARTITION_BLOCK_TYPE), bit_off = index % sizeof(PARTITION_BLOCK_TYPE);
     if (val)
         p.data[byte_off] ^= 1 << bit_off;
@@ -46,9 +46,9 @@ void Partition_set(Partition p, uint64_t index, bool value) {
         p.data[byte_off] &= ~(1 << bit_off);
 }
 
-bool Partition_get(Partition p, uint64_t index) {
+PartitionType Partition_get(Partition p, uint64_t index) {
     uint64_t byte_off = index / sizeof(PARTITION_BLOCK_TYPE), bit_off = index % sizeof(PARTITION_BLOCK_TYPE);
-    return (p.data[byte_off] >> bit_off) & 1;
+    return ((p.data[byte_off] >> bit_off) & 1) ? LEFT : RIGHT;
 }
 
 void Partition_destroy(Partition p) {
