@@ -24,6 +24,11 @@ test: testcompile
 	$(RM) $@
 	mtrace mtrace/mtrace.$(NOW)
 
+test-perf: clean $(OBJS) test_perf.o
+	$(CC) $(OBJS) test_perf.o -DDEBUG -O0 -o test
+	./test
+	$(RM) test
+
 testcompile: TESTFLAG := -DQUADTREE_TEST
 testcompile: clean $(OBJS) test.o
 	$(CC) $(OBJS) test.o -DDEBUG -O0 -o test
