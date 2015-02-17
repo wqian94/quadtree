@@ -65,19 +65,29 @@ bool Quadtree_search(Quadtree* node, Point* p) {
     return Quadtree_search(node->children[quadrant], p);
 }
 
-Node* Quadtree_add_helper(Node* node, Point* p) {
+Node* Quadtree_add_helper(Node* node, Point* p, int depth) {
     // find where to insert node
     Node* parent = node;
     int quadrant = get_quadrant(&parent->center, p);
-    while (parent->children[quadrant] != NULL && parent->children[quadrant]->is_square) {
+    while (parent->children[quadrant] != NULL && parent->children[quadrant]->is_square
+            && in_range(parent->children[quadrant], p)) {
         parent = parent->children[quadrant];
         quadrant = get_quadrant(&parent->center, p);
     }
 
+    // ignore out-of-bounds
+    if (!in_range(parent, p))
+        return NULL;
+
+    // ignore repeats
+    if (parent->children[quadrant] != NULL && Point_equals(parent->children[quadrant]->center, *p))
+        return NULL;
+
     // recursively create down-nodes
     Node* down_clone = NULL;
     if (parent->down != NULL)
-        down_clone = Quadtree_add_helper(parent->down, p);
+        if ((down_clone = Quadtree_add_helper(parent->down, p, depth + 1)) == NULL)
+            return NULL;
 
     // create the new node
     Node* new_node = (Node*)Node_create(0.5 * parent->length, *p);
@@ -107,8 +117,8 @@ Node* Quadtree_add_helper(Node* node, Point* p) {
     // if target slot isn't empty, we're going to have to create a square for it
     else {
         // create the new square
-        Node* square = Quadtree_create(new_node->length, get_new_center(parent, quadrant));
         int square_quadrant = quadrant;
+        Node* square = Quadtree_create(new_node->length, get_new_center(parent, square_quadrant));
 
         // update the length of the new node
         new_node->length *= 0.5;
@@ -169,8 +179,7 @@ bool Quadtree_add(Quadtree* node, Point* p) {
         }
         node = node->up;
     }
-    Quadtree_add_helper(node, p);
-    return true;
+    return Quadtree_add_helper(node, p, 0) != NULL;
 }
 
 // updates the pointers relating to the square if needed

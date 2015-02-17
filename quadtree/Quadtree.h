@@ -157,7 +157,7 @@ static inline bool in_range(Node* n, Point* p) {
  * Returns the quadrant that p is in, relative to origin.
  */
 static inline int get_quadrant(Point* origin, Point* p) {
-    return ((p->x < origin->x) != (p->y < origin->y)) + 2 * (p->y < origin->y);
+    return (p->x >= origin->x) + 2 * (p->y >= origin->y);
 }
 
 /*
@@ -173,8 +173,8 @@ static inline int get_quadrant(Point* origin, Point* p) {
  */
 static inline Point get_new_center(Node* node, int quadrant) {
     return (Point){
-        .x = node->center.x + (0.5 - (((quadrant + 1) % 4) / 2)) * 0.5 * node->length,  // taking advantage of integer division
-        .y = node->center.y + (0.5 - ((quadrant % 4) / 2)) * 0.5 * node->length
+        .x = node->center.x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
+        .y = node->center.y + ((quadrant / 2) - 0.5) * 0.5 * node->length
         };
 }
 

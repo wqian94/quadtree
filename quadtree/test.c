@@ -1,8 +1,8 @@
 /**
-Testing suite for Quadtrees
+Testing suite for correctness of Quadtrees
 */
 
-#include "./test.h"
+#include "test.h"
 
 extern bool in_range(Node*, Point*);
 extern void Point_string(Point*, char*);
@@ -20,34 +20,34 @@ void print_Quadtree(Quadtree* root) {
     if (root->down != NULL)
         printf(", down=%llu", (unsigned long long)root->down->id);
 
+    if (root->children[3] != NULL)
+        printf(", children[3]=%llu", (unsigned long long)root->children[3]->id);
+
+    if (root->children[2] != NULL)
+        printf(", children[2]=%llu", (unsigned long long)root->children[2]->id);
+
     if (root->children[0] != NULL)
         printf(", children[0]=%llu", (unsigned long long)root->children[0]->id);
 
     if (root->children[1] != NULL)
         printf(", children[1]=%llu", (unsigned long long)root->children[1]->id);
 
-    if (root->children[2] != NULL)
-        printf(", children[2]=%llu", (unsigned long long)root->children[2]->id);
-
-    if (root->children[3] != NULL)
-        printf(", children[3]=%llu", (unsigned long long)root->children[3]->id);
-
     printf("]\n");
 
     if (root->up != NULL)
         print_Quadtree(root->up);
-
-    if (root->children[0] != NULL)
-        print_Quadtree(root->children[0]);
-
-    if (root->children[1] != NULL)
-        print_Quadtree(root->children[1]);
 
     if (root->children[2] != NULL)
         print_Quadtree(root->children[2]);
 
     if (root->children[3] != NULL)
         print_Quadtree(root->children[3]);
+
+    if (root->children[0] != NULL)
+        print_Quadtree(root->children[0]);
+
+    if (root->children[1] != NULL)
+        print_Quadtree(root->children[1]);
 
 }
 
@@ -87,7 +87,7 @@ void test_get_quadrant() {
         Point_create(1, 0), Point_create(1, 1), Point_create(0, 1), Point_create(-1, 1),
         Point_create(-1, 0), Point_create(-1, -1), Point_create(0, -1), Point_create(1, -1)
     };
-    int expected_quadrants[8] = {0, 0, 0, 1, 1, 2, 3, 3};
+    int expected_quadrants[8] = {3, 3, 3, 2, 2, 0, 1, 1};
     int i;
     char buffer[100];
     for (i = 0; i < 8; i++) {
@@ -102,7 +102,7 @@ void test_get_new_center() {
     Quadtree* q1 = Quadtree_create(s1, p1);
     
     Point new_center = get_new_center(q1, 0);
-    assertPoint(Point_create(4, 4), new_center, "new_center");
+    assertPoint(Point_create(-4, -4), new_center, "new_center");
     Quadtree_uproot(q1);
 }
 
@@ -143,7 +143,7 @@ void test_quadtree_add() {
 
     printf("\n---Quadtree_add One Node Test---\n");
     Quadtree_add(q1, &p2);
-    Node* q2 = q1->children[0];
+    Node* q2 = q1->children[3];
 
     int count_q1_levels = 0;
     Node* node;
@@ -163,93 +163,93 @@ void test_quadtree_add() {
     Node* square1 = q1->children[get_quadrant(&q1->center, &p2)];
     assertPoint(Point_create(4, 4), square1->center, "square1->center");
 
-    assertTrue(square1->is_square, "q1->children[0].is_square");
+    assertTrue(square1->is_square, "q1->children[3].is_square");
 
-    Node* q3 = square1->children[0];
-    assertFalse(q3 == NULL, "(q1->children[0]->children[0] == NULL)");
+    Node* q3 = square1->children[3];
+    assertFalse(q3 == NULL, "(q1->children[3]->children[3] == NULL)");
 
     if (q3 != NULL) {
         assertPoint(p3, q3->center, "q3->center");
 
         sprintf(buffer, "get_quadrant(Point(%f, %f), Point(%f, %f))",
             square1->center.x, square1->center.y, q3->center.x, q3->center.y);
-        assertLong(0, get_quadrant(&square1->center, &q3->center), buffer);
+        assertLong(3, get_quadrant(&square1->center, &q3->center), buffer);
     }
     else {  // alert to problems
-        assertError("square1->children[0] is not NULL");
-        assertError("square1->children[0]->center is not NULL");
+        assertError("square1->children[3] is not NULL");
+        assertError("square1->children[3]->center is not NULL");
     }
 
-    assertFalse(square1->children[2] == NULL, "(q1->children[0]->children[2] == NULL)");
+    assertFalse(square1->children[0] == NULL, "(q1->children[3]->children[0] == NULL)");
 
     sprintf(buffer, "get_quadrant(Point(%f, %f), Point(%f, %f))",
         square1->center.x, square1->center.y, q2->center.x, q2->center.y);
-    assertLong(2, get_quadrant(&square1->center, &q2->center), buffer);
+    assertLong(0, get_quadrant(&square1->center, &q2->center), buffer);
 
     printf("\n---Quadtree_add Inner Square Generation Test---\n");
     Quadtree_add(q1, &p4);
     Node* square2 = NULL;
-    if (square1->children[2] != NULL) {
-        square2 = square1->children[2];
+    if (square1->children[0] != NULL) {
+        square2 = square1->children[0];
         assertPoint(Point_create(2, 2), square2->center, "square2->center");
 
-        if (square2->children[0] != NULL) {
-            assertPoint(p4, square2->children[0]->center, "square2->children[0]->center");
+        if (square2->children[3] != NULL) {
+            assertPoint(p4, square2->children[3]->center, "square2->children[3]->center");
         }
         else {
-            assertError("square2->children[0]->center is not NULL");
+            assertError("square2->children[3]->center is not NULL");
         }
     }
     else {  // alert to problems
-        assertError("square1->children[0]->children[2] is not NULL");
-        assertError("square1->children[0]->children[2]->center is not NULL");
+        assertError("square1->children[3]->children[0] is not NULL");
+        assertError("square1->children[3]->children[0]->center is not NULL");
     }
 
     printf("\n---Quadtree_add Greater Depth Test---\n");
     Quadtree_add(q1, &p5);
-    assertTrue(q1->children[2] != NULL, "(q1->children[2] != NULL)");
-    if (q1->children[2] != NULL) {
-        assertFalse(q1->children[2]->is_square, "q1->children[2]->is_square");
-        assertPoint(Point_create(-2, -2), q1->children[2]->center, "q1->children[2]->center");
+    assertTrue(q1->children[0] != NULL, "(q1->children[0] != NULL)");
+    if (q1->children[0] != NULL) {
+        assertFalse(q1->children[0]->is_square, "q1->children[0]->is_square");
+        assertPoint(Point_create(-2, -2), q1->children[0]->center, "q1->children[0]->center");
     }
     else {
-        assertError("q1->children[2]->is_square is not NULL");
-        assertError("q1->children[2]->center is not NULL");
+        assertError("q1->children[0]->is_square is not NULL");
+        assertError("q1->children[0]->center is not NULL");
     }
 
     printf("\n---Quadtree_add Alternating Quadrant Test---\n");
     Quadtree_add(q1, &p6);
     Node* square3 = NULL;
-    if (square2 != NULL && square2->children[2] != NULL) {
-        square3 = square2->children[2];
+    if (square2 != NULL && square2->children[0] != NULL) {
+        square3 = square2->children[0];
         assertPoint(Point_create(1, 1), square3->center, "square3->center");
     }
     else
         assertError("square3->center is not NULL");
 
+    if (square3 != NULL && square3->children[3] != NULL)
+        assertPoint(p2, square3->children[3]->center, "square3->children[3]->center");
+    else
+        assertError("square3->children[3]->center is not NULL");
+
     if (square3 != NULL && square3->children[0] != NULL)
-        assertPoint(p2, square3->children[0]->center, "square3->children[0]->center");
+        assertPoint(p6, square3->children[0]->center, "square3->children[0]->center");
     else
         assertError("square3->children[0]->center is not NULL");
 
-    if (square3 != NULL && square3->children[2] != NULL)
-        assertPoint(p6, square3->children[2]->center, "square3->children[2]->center");
+    if (square3 != NULL && square3->children[0] != NULL && square3->children[0]->up != NULL)
+        assertPoint(p6, square3->children[0]->up->center, "square3->children[0]->up->center");
     else
-        assertError("square3->children[2]->center is not NULL");
-
-    if (square3 != NULL && square3->children[2] != NULL && square3->children[2]->up != NULL)
-        assertPoint(p6, square3->children[2]->up->center, "square3->children[2]->up->center");
-    else
-        assertError("square3->children[2]->up->center is not NULL");
+        assertError("square3->children[0]->up->center is not NULL");
 
     if (square3 != NULL && square3->up != NULL) {
-        if (square3->up->children[2] != NULL)
-            assertPoint(p6, square3->up->children[2]->center, "square3->up->children[2]->center");
+        if (square3->up->children[0] != NULL)
+            assertPoint(p6, square3->up->children[0]->center, "square3->up->children[0]->center");
         else
-            assertError("square3->up->children[2]->center is not NULL");
+            assertError("square3->up->children[0]->center is not NULL");
     }
     else {  // if we get here, it means that our parent-finding algorithm is wrong
-        assertError("square3->up->children[2]->center is not NULL [invalid parent]");
+        assertError("square3->up->children[0]->center is not NULL [invalid parent]");
     }
 
     Quadtree_uproot(q1);
@@ -392,27 +392,31 @@ void test_randomized() {
 
 void test_performance() {
     char buffer[1000];
-    float64_t s1 = 16.0;  // size1; chose to use S instead of L
+    float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
     Point p1 = Point_create(0, 0);
     Quadtree* q1 = Quadtree_create(s1, p1);
 
     test_rand_off();
 
-    const uint64_t num_samples = 32;
+    const uint64_t num_samples = 1L << 17;
 
-    double time_samples[num_samples];
+    float64_t time_samples[num_samples];
+    uint64_t total_cycles = 0;
 
     uint64_t i;
     for (i = 0; i < num_samples; i++) {
-        double x = 0.25 * s1 / (1 << i);  //(Marsaglia_random() - 0.5) * s1;
-        double y = 0.25 * s1 / (1 << i);  //(Marsaglia_random() - 0.5) * s1;
+        double x = (Marsaglia_random() - 0.5) * s1;
+        double y = (Marsaglia_random() - 0.5) * s1;
         Point p = Point_create(x, y);
         clock_t start = clock();
-        Quadtree_add(q1, &p);
+        bool result = Quadtree_add(q1, &p);
         clock_t end = clock();
-        time_samples[i] = ((double)(end - start)); // / CLOCKS_PER_SEC;
-        if (i)
-            time_samples[i] += time_samples[i - 1];
+        if (result) {
+            time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
+            total_cycles += (end - start);
+        }
+        else
+            i--;
     }
 
     double time_samples_d1[num_samples - 1];  // first derivatives
@@ -420,26 +424,7 @@ void test_performance() {
         time_samples_d1[i] = time_samples[i + 1] - time_samples[i];
     }
 
-    double time_samples_d2[num_samples - 2];  // second derivatives
-    for (i = 0; i < num_samples - 2; i++) {
-        time_samples_d2[i] = time_samples_d1[i + 1] - time_samples_d1[i];
-    }
-
-    // expecting (1/(N+1))/(1/N) = N/(N+1) ratio
-    double ratios[num_samples - 3];  // ratios
-    for (i = 0; i < num_samples - 3; i++) {
-        ratios[i] = time_samples_d2[i + 1] / (time_samples_d2[i] ? time_samples_d2[i] : 1);
-    }
-
-    // N/(N+1) * (N+1)/(N+2) * ... telescopes to N/(N+M)
-    double ratio_product = 1;
-    for (i = 0; i < num_samples - 3; i++) {
-        ratio_product *= ratios[i] ? ratios[i] : 1;
-    }
-
-    printf("ratio_product: %lf\n%lu/%u = %lf, %lu/%u = %lf, %lu/%u = %lf\n",
-        ratio_product, num_samples - 3, 1, (num_samples - 3)/1.0,
-        num_samples - 2, 1, (num_samples - 2)/1.0, num_samples - 1, 1, (num_samples - 1)/1.0);
+    printf("Total time for %llu inserts: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
 
     Quadtree_uproot(q1);
 }
@@ -447,6 +432,7 @@ void test_performance() {
 int main(int argc, char* argv[]) {
     setbuf(stdout, 0);
     mtrace();
+    Marsaglia_srand(time(NULL));
     printf("[Beginning tests]\n");
     
     start_test(test_sizes, "Struct sizes");
