@@ -53,7 +53,8 @@ BinaryTree* BinaryTree_create() {
 /*
  * BinaryTree_add
  *
- * Adds a new KDnode to this tree, with the given partition.
+ * Adds a new KDnode to this tree, with the given partition. Will replace a node's data
+ * if the partition is already existent.
  *
  * tree - the BinaryTree to insert into
  * partition - the Partition to use
@@ -64,9 +65,6 @@ BinaryTree* BinaryTree_create() {
 BinaryTreeNode* BinaryTree_add(BinaryTree* tree, Partition* partition, KDnode* node) {
     register int i;
     for (i = 0; i < partition->dim; i++) {
-        if (tree->left == NULL && tree->right == NULL)
-            break;
-
         if (Partition_get(partition, i) == LEFT) {
             if (tree->left == NULL)
                 tree->left = BinaryTree_create();
@@ -75,31 +73,6 @@ BinaryTreeNode* BinaryTree_add(BinaryTree* tree, Partition* partition, KDnode* n
         else {
             if (tree->right == NULL)
                 tree->right = BinaryTree_create();
-            tree = tree->right;
-        }
-    }
-
-    if (tree->leaf != NULL) {
-        if (Partition_get(partition, i) == LEFT) {
-            // move current data to a child
-            tree->right = BinaryTree_create();
-            tree->right->partition = tree->partition;
-            tree->right->leaf = tree->leaf;
-            tree->partition = NULL;
-            tree->leaf = NULL;
-
-            tree->left = BinaryTree_create();
-            tree = tree->left;
-        }
-        else {
-            // move current data to a child
-            tree->left = BinaryTree_create();
-            tree->left->partition = tree->partition;
-            tree->left->leaf = tree->leaf;
-            tree->partition = NULL;
-            tree->leaf = NULL;
-
-            tree->right = BinaryTree_create();
             tree = tree->right;
         }
     }
@@ -210,6 +183,46 @@ KDnode* BinaryTree_search(BinaryTree* tree, Partition* partition) {
     }
 
     return !tree->removed && Partition_equals(tree->partition, partition) ? tree->leaf : NULL;
+}
+
+/*
+ * BinaryTree_leaf_count
+ *
+ * Returns the number of leaf nodes in this tree.
+ *
+ * tree - the root of the BinaryTree to count
+ *
+ * Returns the number of leaf nodes in tree.
+ */
+uint64_t BinaryTree_leaf_count(BinaryTree* tree) {
+    if (tree->leaf != NULL)
+        return 1;
+
+    return (tree->left != NULL ? BinaryTree_leaf_count(tree->left) : 0) +
+           (tree->right != NULL ? BinaryTree_leaf_count(tree->right) : 0);
+}
+
+/*
+ * BinaryTree_find_leaf
+ *
+ * Returns a leaf of the tree. If the tree has only 1 leaf, returns the only leaf.
+ *
+ * tree - the root of the BinaryTree to search in
+ *
+ * A KDnode in the leaf if one exists, or NULL if there is none.
+ */
+KDnode* BinaryTree_find_leaf(BinaryTree* tree) {
+    if (tree->leaf != NULL)
+        return tree->leaf;
+
+    Node* node = NULL;
+    if (tree->left != NULL)
+        node = BinaryTree_find_leaf(tree->left);
+
+    if (node == NULL && tree->right != NULL)
+        node = BinaryTree_find_leaf(tree->right);
+
+    return node;
 }
 
 /*

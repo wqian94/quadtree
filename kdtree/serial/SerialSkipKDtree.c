@@ -68,59 +68,65 @@ Node* Node_create(float64_t length, Point center, NodeType type, uint64_t D) {
     Node* node = (Node*)malloc(sizeof(Node));
     *node = (Node){.type = type, .parent = NULL,
         .up = NULL, .down = NULL, //.children is not initialized here
-        .length = length, .center = center
+        .length = length, .center = center,
+        .children = BinaryTree_create()
 #ifdef KDTREE_TEST
 , .id = (KDTREE_NODE_COUNT++)
 #endif
         };
-    register uint64_t i;
-    for (i = 0; i < N_PARTITIONS; i++)
-        node->children[i] = NULL;
     return node;
 }
 
-bool KDtree_search(KDtree* node, Point* p) {
+bool KDtree_search_helper(Tree* tree, Node* node, Point* p) {
     if (node == NULL)  // shouldn't happen, but just in case...
         return false;
 
     if (!in_range(node, p))  // check to make sure p is within the boundaries
         return false;
     // call starts at root of the highest-order tree
-    // children[i] is partition i+1, relative to node
-    int partition = get_partition(&node->center, p);
+    Partition partition = get_partition(&node->center, p, tree->D);
+
+    Node* child = BinaryTree_search(node->children, &partition);
 
     // no such child on this level
-    if (node->children[partition] == NULL) {
+    if (child == NULL) {
         // in case we didn't catch this earlier
-        if (!node->is_container && Point_equals(node->center, *p))
+        if (node->type == REGION && Point_equals(node->center, *p))
             return true;
         // move down a level and continue if possible
         else if (node->down != NULL)
-            return KDtree_search(node->down, p);
+            return KDtree_search_helper(tree, node->down, p);
         // otherwise, conclusively not found
         return false;
     }
 
     // otherwise, recurse on partitions
-    return KDtree_search(node->children[partition], p);
+    return KDtree_search(tree, child, p);
 }
 
-Node* KDtree_add_helper(Node* node, Point* p) {
+bool KDtree_search(KDtree* tree, Point* p) {
+    if (tree->tree == NULL)
+        return false;
+    return KDtree_search_helper(tree, (Node*)tree->tree, p);
+}
+
+Node* KDtree_add_helper(Tree* tree, Node* node, Point* p) {
     // find where to insert node
-    Node* parent = node;
-    int partition = get_partition(&parent->center, p);
-    while (parent->children[partition] != NULL && parent->children[partition]->is_container) {
-        parent = parent->children[partition];
+    Node *parent = node, *child;
+    Partition partition = get_partition(&parent->center, p);
+    //Node* child = BinaryTree_search(parent
+    while ((child = BinaryTree_search(parent->children, &partition)) != NULL && child->type == REGION) {
+        parent = child;
         partition = get_partition(&parent->center, p);
     }
 
     // recursively create down-nodes
     Node* down_clone = NULL;
     if (parent->down != NULL)
-        down_clone = KDtree_add_helper(parent->down, p);
+        down_clone = KDtree_add_helper(tree, parent->down, p);
 
     // create the new node
-    Node* new_node = (Node*)Node_create(0.5 * parent->length, *p);
+    Node* new_node = Node_create(0.5 * parent->length, *p, NodeType.POINT, tree->D);
 
     // update new node's parent and down pointers
     new_node->parent = parent;
@@ -131,7 +137,7 @@ Node* KDtree_add_helper(Node* node, Point* p) {
         down_clone->up = new_node;
 
     // if target slot is empty, add it in!
-    if (parent->children[partition] == NULL) {
+    if (child == NULL) {
         // find the corresponding container in the parent, which we know has to exist
         Node* parent_down = down_clone;
         while (parent_down != NULL && !Point_equals(parent_down->center, parent->center))
@@ -142,98 +148,98 @@ Node* KDtree_add_helper(Node* node, Point* p) {
         if (parent_down != NULL)
             parent_down->up = parent;
 
-        parent->children[partition] = new_node;
+        BinaryTree_add(parent->children, &partition, new_node);
     }
     // if target slot isn't empty, we're going to have to create a container for it
     else {
-        // create the new container
-        Node* container = KDtree_create(new_node->length, get_new_center(parent, partition));
-        int container_partition = partition;
+        // create the new region
+        Node* region = Node_create(new_node->length, get_new_center(parent, partition), NodeType.REGION);
+        Partition region_partition = partition;
 
         // update the length of the new node
         new_node->length *= 0.5;
 
         // grab the conflicting node
-        Node* sibling = parent->children[partition];
+        Node* sibling = BinaryTree_search(parent->children, &partition);
         sibling->length = new_node->length;
-        int sibling_partition;
+        Partition sibling_partition;
 
-        // find the next container that buckets new_node and sibling in different partitions
-        while ((sibling_partition = get_partition(&container->center, &sibling->center)) ==
-                (partition = get_partition(&container->center, &new_node->center))) {
-            // update center and length of container
-            container->center = get_new_center(container, partition);
-            container->length = new_node->length;
+        // find the next region that buckets new_node and sibling in different partitions
+        while (Partition_equals(sibling_partition = get_partition(&region->center, &sibling->center), 
+                partition = get_partition(&region->center, &new_node->center))) {
+            // update center and length of region
+            region->center = get_new_center(container, partition);
+            region->length = new_node->length;
 
             // update lengths of new_node and sibling
             new_node->length *= 0.5;
             sibling->length = new_node->length;
         }
 
-        // update container's children
-        container->children[partition] = new_node;
-        container->children[sibling_partition] = sibling;
+        // update region's children
+        BinaryTree_add(region->children, &partition, new_node);
+        BinaryTree_add(region->children, &sibling_partition, sibling);
 
-        // find container's down by checking up the tree from the bottom child
-        Node* container_down = parent->children[container_partition]->down;
-        while (container_down != NULL && (!Point_equals(container_down->center, container->center) || !container_down->is_container))
-            container_down = container_down->parent;
+        // find region's down by checking up the tree from the bottom child
+        Node* region_down = child->down;
+        while (region_down != NULL && (!Point_equals(region_down->center, region->center) || !region_down->is_region))
+            region_down = region_down->parent;
 
-        container->down = container_down;
-        if (container_down != NULL)
-            container_down->up = container;
+        region->down = region_down;
+        if (region_down != NULL)
+            region_down->up = region;
 
         // update parent's children
-        parent->children[container_partition] = container;
+        BinaryTree_add(parent->children, &region_partition, region);
 
         // update parent nodes
-        container->parent = parent;
-        new_node->parent = container;
-        sibling->parent = container;
+        region->parent = parent;
+        new_node->parent = region;
+        sibling->parent = region;
     }
     // two possibilities: target slot is empty (great), target slot is not empty (darn)
     // target slot is empty: just insert and set pointers
-    // target slot is not empty: create new compressed container and swap
+    // target slot is not empty: create new compressed region and swap
     return new_node;
 }
 
-bool KDtree_add(KDtree* node, Point* p) {
+bool KDtree_add(KDtree* tree, Point* p) {
+    Node* node = (Node*)tree->tree;
     if (!in_range(node, p))  // check to make sure p is within the boundaries
         return false;
     while (rand() % 100 < 50) {  // branch to highest level in tree, creating levels as needed
         if (node->up == NULL) {  // create new level
-            KDtree* up = KDtree_create(node->length, node->center);
-            up->is_container = true;
+            KDtree* up = Node_create(node->length, node->center);
+            up->type = NodeType.REGION;
             up->down = node;
             node->up = up;
         }
         node = node->up;
     }
-    KDtree_add_helper(node, p);
+    KDtree_add_helper(tree, node, p);
     return true;
 }
 
 // updates the pointers relating to the container if needed
 /*
- * update_container
+ * update_region
  *
- * Updates the provided node to ensure valid representation, but only if node is a container.
+ * Updates the provided node to ensure valid representation, but only if node is a
+ * region.
  *
  * In particular:
  * - If node has only 1 child, we will replace the container with that one child.
- * - If node has no children, we will delete the container, detroying a level if that container
- *   was a root node, unless we're at the lowest-level container.
+ * - If node has no children, we will delete the container, detroying a level if that
+ *   region was a root node, unless we're at the lowest-level region.
  * - Otherwise, do nothing.
  *
- * node - the container that we're attempting to update
+ * node - the region that we're attempting to update
  */
-static inline void update_container(KDtree* node) {
-    if (node == NULL || !node->is_container)
+static inline void update_region(Node* node) {
+    if (node == NULL || node->type != NodeType.REGION)
         return;
 
-    int i, count_children = 0;
-    for (i = 0; i < N_PARTITIONS; i++)
-        count_children += node->children[i] != NULL;
+    int i, count_children = BinaryTree_leaf_count(node->children);
 
     // delete container if no children left: should only really happen at the root
     if (count_children == 0) {
@@ -241,7 +247,8 @@ static inline void update_container(KDtree* node) {
         if (node->parent != NULL || node->down != NULL) {
             // unset pointer from parent
             if (node->parent != NULL)
-                node->parent->children[get_partition(&node->parent->center, &node->center)] = NULL;
+                BinaryTree_remove(node->parent->children,
+                    &get_partition(&node->parent->center, &node->center));
 
             // reset pointer from down
             if (node->down != NULL)
@@ -254,18 +261,14 @@ static inline void update_container(KDtree* node) {
             free(node);
         }
     }
-    // if only 1 child left, replace container with that child
+    // if only 1 child left, replace region with that child
     else if (count_children == 1) {
-        Node* only_child = NULL;
-        for (i = 0; i < N_PARTITIONS; i++)
-            if ((only_child = node->children[i]) != NULL)
-                break;
-
         // only_child can't be NULL because we already checked
+        Node* only_child = BinaryTree_find_leaf(node->children);
 
         // if not at root, do the replacement; if at root, do nothing
         if (node->parent != NULL) {
-            node->parent->children[get_partition(&node->parent->center, &node->center)] = only_child;
+            BinaryTree_add(node->parent->children, &get_partition(&node->parent->center, &node->center), only_child);
             only_child->parent = node->parent;
 
             // reset pointer from down
@@ -281,7 +284,7 @@ static inline void update_container(KDtree* node) {
     }
 }
 
-bool KDtree_remove(KDtree* node, Point* p) {
+bool KDtree_remove_helper(Node* node, Point* p) {
     if (node == NULL)  // one base case
         return false;
 
@@ -289,12 +292,11 @@ bool KDtree_remove(KDtree* node, Point* p) {
         return false;
 
     if (node->is_container) {
-        int partition = get_partition(&node->center, p);
-        bool removed = KDtree_remove(node->children[partition], p);
+        bool removed = KDtree_remove(node->children, &get_partition(&node->center, p), p);
 
         // if we made a change, check the rep to see if this container is needed anymore
         if (removed) {
-            update_container(node);
+            update_region(node);
         }
         // otherwise, the node might not be on this level, so drop a level
         else {
@@ -315,10 +317,10 @@ bool KDtree_remove(KDtree* node, Point* p) {
         Node* down = node->down;
 
         // leaf nodes are guaranteed parent nodes
-        int partition = get_partition(&node->parent->center, p);
+        Partition partition = get_partition(&node->parent->center, p);
 
         // reset pointers
-        node->parent->children[partition] = NULL;
+        BinaryTree_remove(node->parent->children, &partition);
 
         if (node->down != NULL)
             node->down->up = node->up;
@@ -327,44 +329,48 @@ bool KDtree_remove(KDtree* node, Point* p) {
             node->up->down = node->down;
 
         // reset parent's pointers
-        update_container(node->parent);
+        update_region(node->parent);
 
         // reset pointer to parent
         node->parent = NULL;
 
         free(node);
 
-        KDtree_remove(down, p);
+        KDtree_remove_helper(down, p);
 
         return true;
     }
 }
 
-bool KDtree_uproot(KDtree* root) {
-    // uprooting from the topmost tree down
-    if (root->up != NULL)
-        if (!KDtree_uproot(root->up))  // if something returned an error...
-            return false;
+bool KDtree_remove(KDtree* tree, Point* p) {
+    return KDtree_remove_helper((Node*)tree->tree, p);
+}
 
-    int i;
-    for(i = 0; i < N_PARTITIONS; i++)
-        if (root->children[i] != NULL)
-            KDtree_uproot(root->children[i]);
+void KDnode_purge(Node* node);
+void KDnode_purge_helper(BinaryTree* bt) {
+    bt->removed = true;
 
-    // unset child from parent, in case parent isn't being uprooted
-    if (root->parent != NULL) {
-        int partition = get_partition(&root->parent->center, &root->center);
-        root->parent->children[partition] = NULL;
-    }
+    if (bt->left != NULL)
+        KDnode_purge_helper(bt->left);
 
-    // unset top from bottom, so that the tree is uprooted layer by layer
-    if (root->down != NULL)
-        root->down->up = NULL;
+    if (bt->right != NULL)
+        KDnode_purge_helper(bt->right);
 
-    // free the current node
-    free(root);
+    if (bt->leaf != NULL)
+        KDnode_purge(bt->leaf);
 
-    return true;
+    Partition_destroy(bt->partition);
+    free(bt);
+}
+
+bool KDnode_purge(Node* node) {
+    KDnode_purge_helper(node->children);
+    free(node);
+}
+
+bool KDtree_uproot(KDtree* tree) {
+    return KDnode_purge((Node*)tree->tree) &&
+           LinkedList_purge((LinkedList*)tree->list);
 }
 
 #endif
