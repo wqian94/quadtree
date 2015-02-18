@@ -39,7 +39,11 @@ void test_powers_of_two() {
     }
     num_samples = i;
 
+    #ifdef VERBOSE
     printf("Total time for %llu inserts: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    #else
+    printf("%llu, %.8lf, ", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    #endif
 
     Quadtree_uproot(q1);
 }
@@ -71,7 +75,11 @@ void test_random_n(const uint64_t num_samples) {
             i--;
     }
 
+    #ifdef VERBOSE
     printf("Total time for %llu inserts: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    #else
+    printf("%llu, %.8lf, ", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    #endif
 
     Quadtree_uproot(q1);
 }
@@ -102,7 +110,8 @@ void test_random_1048576() {
 
 int main(int argc, char* argv[]) {
     setbuf(stdout, 0);
-    Marsaglia_srand(time(NULL));
+    Marsaglia_srand(0);
+    #ifdef VERBOSE
     printf("[Beginning tests]\n");
     
     start_test(test_powers_of_two, "Powers of two test");
@@ -121,5 +130,15 @@ int main(int argc, char* argv[]) {
     printf("PASSED TESTS: %4lld | PASSED ASSERTIONS: %5lld\n", passed_tests(), passed_assertions());
     printf("FAILED TESTS: %4lld | FAILED ASSERTIONS: %5lld\n", total_tests() - passed_tests(), total_assertions() - passed_assertions());
     printf("================== | ========================\n");
+    #else
+    test_powers_of_two();
+    test_random_1024();
+    test_random_65536();
+    test_random_131072();
+    test_random_262144();
+    test_random_524288();
+    test_random_1048576();
+    printf("\n");
+    #endif
     return 0;
 }
