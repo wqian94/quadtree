@@ -5,6 +5,7 @@ Testing suite for performance of Quadtrees
 #include "test.h"
 
 void test_powers_of_two() {
+    Marsaglia_srand(2);
     char buffer[1000];
     float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
     Point p1 = Point_create(0, 0);
@@ -49,6 +50,7 @@ void test_powers_of_two() {
 }
 
 void test_random_n(const uint64_t num_samples) {
+    Marsaglia_srand(num_samples);
     char buffer[1000];
     float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
     Point p1 = Point_create(0, 0);

@@ -24,7 +24,7 @@ test: testcompile
 	$(RM) $@
 	mtrace mtrace/mtrace.$(NOW)
 
-test-perf: TESTFLAG := -DQUADTREE_TEST
+test-perf: TESTFLAG := -DVERBOSE
 test-perf: $(OBJS) test_perf.o
 	$(CC) $(OBJS) test_perf.o -O3 -o test
 	./test
