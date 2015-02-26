@@ -21,7 +21,7 @@ typedef struct SerialSkipQuadtreeNode_t Node;
  * is_square - true if node is a square, false if is a point
  * center - center of the square, or coordinates of the point
  * length - side length of the square. This means that the boundaries are
- *     length/2 distance from the center. Does not matter for a point
+ *     length/2 distance from the center-> Does not matter for a point
  * parent - the parent node in the same level; NULL if a root node
  * up - the clone of the same node in the next level, if it exists
  * down - the clone of the same node in the previous level; NULL if at lowest level
@@ -31,7 +31,7 @@ typedef struct SerialSkipQuadtreeNode_t Node;
  */
 struct SerialSkipQuadtreeNode_t {
     bool is_square;
-    Point center;
+    Point* center;
     float64_t length;
     Node *parent;
     Node *up, *down;
@@ -140,10 +140,10 @@ bool Quadtree_uproot(Quadtree* root);
  * Returns whether p is within the boundaries of n.
  */
 static inline bool in_range(Node* n, Point* p) {
-    return n->center.x - n->length / 2 <= p->x &&
-        n->center.x + n->length / 2 > p->x &&
-        n->center.y - n->length / 2 <= p->y &&
-        n->center.y + n->length / 2 > p->y;
+    return n->center->x - n->length / 2 <= p->x &&
+        n->center->x + n->length / 2 > p->x &&
+        n->center->y - n->length / 2 <= p->y &&
+        n->center->y + n->length / 2 > p->y;
 }
 
 /*
@@ -173,8 +173,8 @@ static inline int get_quadrant(Point* origin, Point* p) {
  */
 static inline Point get_new_center(Node* node, int quadrant) {
     return (Point){
-        .x = node->center.x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
-        .y = node->center.y + ((quadrant / 2) - 0.5) * 0.5 * node->length
+        .x = node->center->x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
+        .y = node->center->y + ((quadrant / 2) - 0.5) * 0.5 * node->length
         };
 }
 
@@ -189,13 +189,13 @@ static inline Point get_new_center(Node* node, int quadrant) {
  */
 static inline void Node_string(Node* node, char* buffer) {
     sprintf(buffer, "Node{is_square = %s, center = (%f, %f), length = %lf, parent = %s, up = %s, down = %s, children = {%s, %s, %s, %s}}",
-        (node->is_square ? "YES" : "NO"), node->center.x, node->center.y, node->length,
+        (node->is_square ? "YES" : "NO"), node->center->x, node->center->y, node->length,
         (node->parent == NULL ? "NO" : "YES"), (node->up == NULL ? "NO" : "YES"),
         (node->down == NULL ? "NO" : "YES"),
         (node->children[0] == NULL ? "NO" : "YES"), (node->children[1] == NULL ? "NO" : "YES"),
         (node->children[2] == NULL ? "NO" : "YES"), (node->children[3] == NULL ? "NO" : "YES"));
     /*sprintf(buffer, "Node{is_square = %s, center = (%f, %f), length = %lf, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}}",
-        (node->is_square ? "YES" : "NO"), node->center.x, node->center.y, node->length,
+        (node->is_square ? "YES" : "NO"), node->center->x, node->center->y, node->length,
         node->parent, node->up, node->down,
         node->children[0], node->children[1], node->children[2], node->children[3]);*/
 }

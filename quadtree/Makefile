@@ -16,22 +16,27 @@ OBJS := $(OBJ_SERIAL)
 
 NOW := $(shell date -u +%s)
 
+all: CFLAGS += -O3
 all: clean $(OBJS) main.o
-	$(CC) $(OBJS) main.o -O3 -o quadtree
+	$(CC) $(OBJS) main.o $(CFLAGS) -o quadtree
 
+test: CFLAGS += -O0
 test: testcompile
 	export MALLOC_TRACE=mtrace/mtrace.$(NOW); ./$@
 	$(RM) $@
 	mtrace mtrace/mtrace.$(NOW)
 
+test-perf: CFLAGS += -O0
 test-perf: TESTFLAG := -DVERBOSE
+test-perf: CC := clang
 test-perf: $(OBJS) test_perf.o
-	$(CC) $(OBJS) test_perf.o -O3 -o test
+	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
 	./test
 	$(RM) test
 
+test-perf-quick: CFLAGS += -O0
 test-perf-quick: $(OBJS) test_perf.o
-	$(CC) $(OBJS) test_perf.o -O3 -o test
+	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
 	./test > test-perf/test-perf-$(NOW).txt
 	cat test-perf/test-perf-$(NOW).txt >> test-perf/test-perf.txt
 	$(RM) test

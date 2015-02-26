@@ -9,7 +9,7 @@ extern void Point_string(Point*, char*);
 
 void print_Quadtree(Quadtree* root) {
     printf("Node[id=%llu, center=(%lf, %lf), length=%lf, is_square=%d",
-        (unsigned long long)root->id, root->center.x, root->center.y, root->length, root->is_square);
+        (unsigned long long)root->id, root->center->x, root->center->y, root->length, root->is_square);
 
     if (root->parent != NULL)
         printf(", parent=%llu", (unsigned long long)root->parent->id);
@@ -112,13 +112,13 @@ void test_quadtree_create() {
     Point p1 = Point_create(0, 0);
     Quadtree* q1 = Quadtree_create(s1, p1);
     assertDouble(s1, q1->length, "q1->length");
-    assertPoint(p1, q1->center, "q1->center");
+    assertPoint(p1, *q1->center, "q1->center");
     assertTrue(q1->is_square, "q1->is_square");
 
     printf("\n---Quadtree_create Node Test---\n");
     Node* q2 = Node_create(s1, p1);
     assertDouble(s1, q2->length, "q2->length");
-    assertPoint(p1, q2->center, "q2->center");
+    assertPoint(p1, *q2->center, "q2->center");
     assertFalse(q2->is_square, "q2->is_square");
 
     Quadtree_uproot(q1);
@@ -149,19 +149,19 @@ void test_quadtree_add() {
     Node* node;
     for (node = q1; node != NULL; node = node->up)
         count_q1_levels++;
-    sprintf(buffer, "Levels of Node(%lf, %lf)", q1->center.x, q1->center.y);
+    sprintf(buffer, "Levels of Node(%lf, %lf)", q1->center->x, q1->center->y);
     assertLong(5, count_q1_levels, buffer);
 
     int count_q2_levels = 0;
     for (node = q2; node != NULL; node = node->up)
         count_q2_levels++;
-    sprintf(buffer, "Levels of Node(%lf, %lf)", q2->center.x, q2->center.y);
+    sprintf(buffer, "Levels of Node(%lf, %lf)", q2->center->x, q2->center->y);
     assertLong(5, count_q2_levels, buffer);
 
     printf("\n---Quadtree_add Conflicting Node Test---\n");
     Quadtree_add(q1, &p3);
-    Node* square1 = q1->children[get_quadrant(&q1->center, &p2)];
-    assertPoint(Point_create(4, 4), square1->center, "square1->center");
+    Node* square1 = q1->children[get_quadrant(q1->center, &p2)];
+    assertPoint(Point_create(4, 4), *square1->center, "square1->center");
 
     assertTrue(square1->is_square, "q1->children[3].is_square");
 
@@ -169,11 +169,11 @@ void test_quadtree_add() {
     assertFalse(q3 == NULL, "(q1->children[3]->children[3] == NULL)");
 
     if (q3 != NULL) {
-        assertPoint(p3, q3->center, "q3->center");
+        assertPoint(p3, *q3->center, "q3->center");
 
         sprintf(buffer, "get_quadrant(Point(%f, %f), Point(%f, %f))",
-            square1->center.x, square1->center.y, q3->center.x, q3->center.y);
-        assertLong(3, get_quadrant(&square1->center, &q3->center), buffer);
+            square1->center->x, square1->center->y, q3->center->x, q3->center->y);
+        assertLong(3, get_quadrant(square1->center, q3->center), buffer);
     }
     else {  // alert to problems
         assertError("square1->children[3] is not NULL");
@@ -183,18 +183,18 @@ void test_quadtree_add() {
     assertFalse(square1->children[0] == NULL, "(q1->children[3]->children[0] == NULL)");
 
     sprintf(buffer, "get_quadrant(Point(%f, %f), Point(%f, %f))",
-        square1->center.x, square1->center.y, q2->center.x, q2->center.y);
-    assertLong(0, get_quadrant(&square1->center, &q2->center), buffer);
+        square1->center->x, square1->center->y, q2->center->x, q2->center->y);
+    assertLong(0, get_quadrant(square1->center, q2->center), buffer);
 
     printf("\n---Quadtree_add Inner Square Generation Test---\n");
     Quadtree_add(q1, &p4);
     Node* square2 = NULL;
     if (square1->children[0] != NULL) {
         square2 = square1->children[0];
-        assertPoint(Point_create(2, 2), square2->center, "square2->center");
+        assertPoint(Point_create(2, 2), *square2->center, "square2->center");
 
         if (square2->children[3] != NULL) {
-            assertPoint(p4, square2->children[3]->center, "square2->children[3]->center");
+            assertPoint(p4, *square2->children[3]->center, "square2->children[3]->center");
         }
         else {
             assertError("square2->children[3]->center is not NULL");
@@ -210,7 +210,7 @@ void test_quadtree_add() {
     assertTrue(q1->children[0] != NULL, "(q1->children[0] != NULL)");
     if (q1->children[0] != NULL) {
         assertFalse(q1->children[0]->is_square, "q1->children[0]->is_square");
-        assertPoint(Point_create(-2, -2), q1->children[0]->center, "q1->children[0]->center");
+        assertPoint(Point_create(-2, -2), *q1->children[0]->center, "q1->children[0]->center");
     }
     else {
         assertError("q1->children[0]->is_square is not NULL");
@@ -222,29 +222,29 @@ void test_quadtree_add() {
     Node* square3 = NULL;
     if (square2 != NULL && square2->children[0] != NULL) {
         square3 = square2->children[0];
-        assertPoint(Point_create(1, 1), square3->center, "square3->center");
+        assertPoint(Point_create(1, 1), *square3->center, "square3->center");
     }
     else
         assertError("square3->center is not NULL");
 
     if (square3 != NULL && square3->children[3] != NULL)
-        assertPoint(p2, square3->children[3]->center, "square3->children[3]->center");
+        assertPoint(p2, *square3->children[3]->center, "square3->children[3]->center");
     else
         assertError("square3->children[3]->center is not NULL");
 
     if (square3 != NULL && square3->children[0] != NULL)
-        assertPoint(p6, square3->children[0]->center, "square3->children[0]->center");
+        assertPoint(p6, *square3->children[0]->center, "square3->children[0]->center");
     else
         assertError("square3->children[0]->center is not NULL");
 
     if (square3 != NULL && square3->children[0] != NULL && square3->children[0]->up != NULL)
-        assertPoint(p6, square3->children[0]->up->center, "square3->children[0]->up->center");
+        assertPoint(p6, *square3->children[0]->up->center, "square3->children[0]->up->center");
     else
         assertError("square3->children[0]->up->center is not NULL");
 
     if (square3 != NULL && square3->up != NULL) {
         if (square3->up->children[0] != NULL)
-            assertPoint(p6, square3->up->children[0]->center, "square3->up->children[0]->center");
+            assertPoint(p6, *square3->up->children[0]->center, "square3->up->children[0]->center");
         else
             assertError("square3->up->children[0]->center is not NULL");
     }

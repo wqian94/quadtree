@@ -20,6 +20,7 @@ typedef struct Point_t{
 
 Point Point_create(float32_t x, float32_t y);
 bool Point_equals(Point a, Point b);
+void Point_copy(Point* from, Point* to);
 
 #ifdef QUADTREE_TEST_H
 void Point_string(Point* p, char* buffer) {

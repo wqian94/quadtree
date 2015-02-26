@@ -50,7 +50,7 @@ void test_powers_of_two() {
 }
 
 void test_random_n(const uint64_t num_samples) {
-    Marsaglia_srand(num_samples);
+    Marsaglia_srand(num_samples % ((1L << 32) - 1));
     char buffer[1000];
     float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
     Point p1 = Point_create(0, 0);
@@ -86,28 +86,24 @@ void test_random_n(const uint64_t num_samples) {
     Quadtree_uproot(q1);
 }
 
-void test_random_1024() {
+void test_random_2_10() {
     test_random_n(1L << 10);
 }
 
-void test_random_65536() {
-    test_random_n(1L << 16);
+void test_random_2_15() {
+    test_random_n(1L << 15);
 }
 
-void test_random_131072() {
-    test_random_n(1L << 17);
-}
-
-void test_random_262144() {
-    test_random_n(1L << 18);
-}
-
-void test_random_524288() {
-    test_random_n(1L << 19);
-}
-
-void test_random_1048576() {
+void test_random_2_20() {
     test_random_n(1L << 20);
+}
+
+void test_random_2_25() {
+    test_random_n(1L << 25);
+}
+
+void test_random_2_30() {
+    test_random_n(1L << 30);
 }
 
 int main(int argc, char* argv[]) {
@@ -117,12 +113,11 @@ int main(int argc, char* argv[]) {
     printf("[Beginning tests]\n");
     
     start_test(test_powers_of_two, "Powers of two test");
-    start_test(test_random_1024, "Random 1024 test");
-    start_test(test_random_65536, "Random 65536 test");
-    start_test(test_random_131072, "Random 131072 test");
-    start_test(test_random_262144, "Random 262144 test");
-    start_test(test_random_524288, "Random 524288 test");
-    start_test(test_random_1048576, "Random 1048576 test");
+    start_test(test_random_2_10, "Random 2^10 test");
+    start_test(test_random_2_15, "Random 2^15 test");
+    start_test(test_random_2_20, "Random 2^20 test");
+    start_test(test_random_2_25, "Random 2^25 test");
+    //start_test(test_random_2_30, "Random 2^30 test");
 
     printf("\n[Ending tests]\n");
     printf("=============================================\n");
