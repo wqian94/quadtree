@@ -172,7 +172,7 @@ Node* Quadtree_add_helper(Node* node, Point* p, int depth) {
 bool Quadtree_add(Quadtree* node, Point* p) {
     if (!in_range(node, p))  // check to make sure p is within the boundaries
         return false;
-    while (rand() % 100 < 50) {  // branch to highest level in tree, creating levels as needed
+    /*while (rand() % 100 < 50) {  // branch to highest level in tree, creating levels as needed
         if (node->up == NULL) {  // create new level
             Quadtree* up = Quadtree_create(node->length, *node->center);
             up->is_square = true;
@@ -180,7 +180,7 @@ bool Quadtree_add(Quadtree* node, Point* p) {
             node->up = up;
         }
         node = node->up;
-    }
+    }*/
     return Quadtree_add_helper(node, p, 0) != NULL;
 }
 
@@ -260,8 +260,12 @@ static inline void update_square(Quadtree* node) {
  * Removes all copies of node from the tree if it matches p.
  */
 bool Quadtree_remove_node(Quadtree* node, Point* p) {
+    /*char buf1[1000], buf2[1000];
+    Point_string(node->center, buf1);
+    Point_string(p, buf2);
+    puts(buf1);
+    puts(buf2);*/
     if (!node->is_square && Point_equals(*node->center, *p)) {
-        printf("found\n");
         do {
             Node* deleted_node = node;
             node = node->down;
@@ -293,41 +297,57 @@ bool Quadtree_remove_node(Quadtree* node, Point* p) {
     return false;
 }
 
+/*
+ * Quadtree_remove_helper
+ *
+ * Invariant: node is always a square.
+ */
 bool Quadtree_remove_helper(Quadtree* node, Point* p) {
-    if (node == NULL)  // shouldn't happen, but just in case...
+/*    if (node == NULL)  // shouldn't happen, but just in case...
         return false;
 
     if (!in_range(node, p))  // check to make sure p is within the boundaries
         return false;
 
-    // yay, we found it!
-    if (Quadtree_remove_node(node, p))
-        return true;
+    // call starts at root of the highest-order tree
+    // children[i] is quadrant i+1, relative to node
+    int quadrant = get_quadrant(node->center, p);
 
+    if (node->children[quadrant] != NULL) {
+        if (node->children[quadrant]->is_square)
+            return Quadtree_remove_helper(node->children[quadrant], p);
+
+        if (Quadtree_remove_node(node->children[quadrant], p))
+            return true;
+    }
+
+    if (node->down != NULL)
+        return Quadtree_remove_helper(node->down, p);
+
+    return false;*/
+    if (node == NULL)  // shouldn't happen, but just in case...
+        return false;
+
+    if (!in_range(node, p))  // check to make sure p is within the boundaries
+        return false;
     // call starts at root of the highest-order tree
     // children[i] is quadrant i+1, relative to node
     int quadrant = get_quadrant(node->center, p);
 
     // no such child on this level
     if (node->children[quadrant] == NULL) {
-        if (Quadtree_remove_node(node->children[quadrant], p))
+        // in case we didn't catch this earlier
+        if (Quadtree_remove_node(node, p))
             return true;
-
         // move down a level and continue if possible
-        if (node->down != NULL)
+        else if (node->down != NULL)
             return Quadtree_remove_helper(node->down, p);
-
         // otherwise, conclusively not found
         return false;
     }
 
     // otherwise, recurse on quadrants
-    if (node->children[quadrant]->is_square)
-        return Quadtree_remove_helper(node->children[quadrant], p);
-    else if (Quadtree_remove_node(node->children[quadrant], p))
-        return true;
-    else
-        return node->down != NULL && Quadtree_remove_helper(node->down, p);
+    return Quadtree_remove_helper(node->children[quadrant], p);
 }
 
 bool Quadtree_remove(Quadtree* node, Point* p) {
@@ -338,7 +358,8 @@ bool Quadtree_remove(Quadtree* node, Point* p) {
 }
 
 uint64_t Quadtree_uproot_helper(Quadtree* root) {
-    uint64_t count = 0;
+    uint64_t count = !root->is_square;
+
     if (root->is_square) {
         int i;
         for(i = 0; i < 4; i++)
@@ -360,14 +381,16 @@ uint64_t Quadtree_uproot_helper(Quadtree* root) {
     free(root->center);
     free(root);
 
-    return count + 1;
+    return count;
 }
 
 uint64_t Quadtree_uproot(Quadtree* root) {
+    uint64_t count = 0;
+
     // uprooting from the topmost tree down
     if (root->up != NULL)
-        if (!Quadtree_uproot(root->up))  // if something returned an error...
+        if (!(count = Quadtree_uproot(root->up)))  // if something returned an error...
             return 0;
 
-    return Quadtree_uproot_helper(root);
+    return count + Quadtree_uproot_helper(root);
 }
