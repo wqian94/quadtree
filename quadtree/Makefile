@@ -26,20 +26,22 @@ test: testcompile
 	$(RM) $@
 	mtrace mtrace/mtrace.$(NOW)
 
-test-perf: CFLAGS += -O0
-test-perf: TESTFLAG := -DVERBOSE
+test-perf: TESTFLAG := -DVERBOSE -fsanitize=address
 test-perf: CC := clang
-test-perf: $(OBJS) test_perf.o
-	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
-	./test
+test-perf: test-perf-compile
+	numactl --cpunodebind=0 ./test
 	$(RM) test
 
-test-perf-quick: CFLAGS += -O0
-test-perf-quick: $(OBJS) test_perf.o
-	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
-	./test > test-perf/test-perf-$(NOW).txt
+test-perf-quick: test-perf-compile test-perf-quick-run
+test-perf-quick-run:
+	mkdir -p test-perf
+	numactl --cpunodebind=0 ./test > test-perf/test-perf-$(NOW).txt
 	cat test-perf/test-perf-$(NOW).txt >> test-perf/test-perf.txt
 	$(RM) test
+
+test-perf-compile: CFLAGS += -O0
+test-perf-compile: $(OBJS) test_perf.o
+	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
 
 testcompile: TESTFLAG := -DQUADTREE_TEST
 testcompile: $(OBJS) test.o
