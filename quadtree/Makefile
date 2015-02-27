@@ -26,20 +26,23 @@ test: testcompile
 	$(RM) $@
 	mtrace mtrace/mtrace.$(NOW)
 
-test-perf: TESTFLAG := -DVERBOSE -fsanitize=address
+test-perf: TESTFLAG := -DVERBOSE
 test-perf: CC := clang
 test-perf: test-perf-compile
-	numactl --cpunodebind=0 ./test
+	#numactl --cpunodebind=0 ./test
+	./test
 	$(RM) test
 
 test-perf-quick: test-perf-compile test-perf-quick-run
 test-perf-quick-run:
 	mkdir -p test-perf
-	numactl --cpunodebind=0 ./test > test-perf/test-perf-$(NOW).txt
+	#numactl --cpunodebind=0 ./test > test-perf/test-perf-$(NOW).txt
+	./test > test-perf/test-perf-$(NOW).txt
 	cat test-perf/test-perf-$(NOW).txt >> test-perf/test-perf.txt
 	$(RM) test
 
-test-perf-compile: CFLAGS += -O0
+#ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
+test-perf-compile: CFLAGS += -O0 -fsanitize=address
 test-perf-compile: $(OBJS) test_perf.o
 	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
 

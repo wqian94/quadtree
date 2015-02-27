@@ -124,8 +124,10 @@ bool Quadtree_remove(Quadtree* node, Point* p);
  * cause memory leaks.
  *
  * This can also be used to uproot subtrees.
+ *
+ * Returns the total number of nodes uprooted
  */
-bool Quadtree_uproot(Quadtree* root);
+ uint64_t Quadtree_uproot(Quadtree* root);
 
 /*
  * in_range

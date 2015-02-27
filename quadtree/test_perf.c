@@ -104,7 +104,11 @@ void test_random_n(const uint64_t num_samples) {
     printf("%.8lf, ", total_cycles / (float64_t)CLOCKS_PER_SEC);
     #endif
 
+    #ifdef VERBOSE
+    printf("Number of leftover nodes (should be 1, the root): %llu\n", Quadtree_uproot(q1));
+    #else
     Quadtree_uproot(q1);
+    #endif
 }
 
 void test_random_2_10() {
