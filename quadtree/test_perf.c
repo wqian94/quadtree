@@ -91,9 +91,15 @@ void test_random_n(const uint64_t num_samples) {
     total_cycles = 0;
 
     for (i = 0; i < num_samples; i++) {
+        char buffer[1000];
+        Point_string(points + i, buffer);
+        puts(buffer);
         clock_t start = clock();
         bool result = Quadtree_remove(q1, points + i);
         clock_t end = clock();
+        result = Quadtree_search(q1, points + i);
+        if (result)
+            puts(buffer);
         time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
         total_cycles += (end - start);
     }
@@ -105,7 +111,7 @@ void test_random_n(const uint64_t num_samples) {
     #endif
 
     #ifdef VERBOSE
-    printf("Number of leftover nodes (should be 1, the root): %llu\n", Quadtree_uproot(q1));
+    printf("Number of leftover nodes (should be 1, the root): %llu\n", (unsigned long long)Quadtree_uproot(q1));
     #else
     Quadtree_uproot(q1);
     #endif
@@ -143,11 +149,11 @@ int main(int argc, char* argv[]) {
     
     //start_test(test_powers_of_two, "Powers of two test");
     start_test(test_random_2_10, "Random 2^10 test");
-    start_test(test_random_2_15, "Random 2^15 test");
-    start_test(test_random_2_20, "Random 2^20 test");
-    start_test(test_random_2_25, "Random 2^25 test");
-    start_test(test_random_2_26, "Random 2^26 test");
-    start_test(test_random_2_27, "Random 2^27 test");
+    //start_test(test_random_2_15, "Random 2^15 test");
+    //start_test(test_random_2_20, "Random 2^20 test");
+    //start_test(test_random_2_25, "Random 2^25 test");
+    //start_test(test_random_2_26, "Random 2^26 test");
+    //start_test(test_random_2_27, "Random 2^27 test");
 
     printf("\n[Ending tests]\n");
     printf("=============================================\n");
@@ -162,9 +168,9 @@ int main(int argc, char* argv[]) {
     test_random_2_10();
     test_random_2_15();
     test_random_2_20();
-    test_random_2_25();
-    test_random_2_26();
-    test_random_2_27();
+    //test_random_2_25();
+    //test_random_2_26();
+    //test_random_2_27();
     printf("\n");
     #endif
     return 0;

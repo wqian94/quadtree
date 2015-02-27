@@ -376,14 +376,15 @@ void test_randomized() {
     assertFalse(Quadtree_search(q1, &p4), "Quadtree_search(q1, p4)");
 
     assertTrue(Quadtree_search(q1, &p5), "Quadtree_search(q1, p5)");
+    assertTrue(Quadtree_search(q1, &p6), "Quadtree_search(q1, p6)");
+    assertTrue(Quadtree_search(q1, &p7), "Quadtree_search(q1, p7)");
+
     Quadtree_remove(q1, &p5);
     assertFalse(Quadtree_search(q1, &p5), "Quadtree_search(q1, p5)");
 
-    assertTrue(Quadtree_search(q1, &p6), "Quadtree_search(q1, p6)");
     Quadtree_remove(q1, &p6);
     assertFalse(Quadtree_search(q1, &p6), "Quadtree_search(q1, p6)");
 
-    assertTrue(Quadtree_search(q1, &p7), "Quadtree_search(q1, p7)");
     Quadtree_remove(q1, &p7);
     assertFalse(Quadtree_search(q1, &p7), "Quadtree_search(q1, p7)");
 
@@ -444,7 +445,7 @@ int main(int argc, char* argv[]) {
     start_test(test_quadtree_search, "Quadtree_search");
     start_test(test_quadtree_remove, "Quadtree_remove");
     start_test(test_randomized, "Randomized (in-environment)");
-    start_test(test_performance, "Performance tests");
+    //start_test(test_performance, "Performance tests");
 
     printf("\n[Ending tests]\n");
     printf("=============================================\n");

@@ -254,51 +254,67 @@ static inline void update_square(Quadtree* node) {
     }
 }
 
+/*
+ * Quadtree_remove_node
+ *
+ * Removes all copies of node from the tree if it matches p.
+ */
+bool Quadtree_remove_node(Quadtree* node, Point* p) {
+    if (!node->is_square && Point_equals(*node->center, *p)) {
+        printf("found\n");
+        do {
+            Node* deleted_node = node;
+            node = node->down;
+
+            // leaf nodes are guaranteed parent nodes
+            int quadrant = get_quadrant(deleted_node->parent->center, p);
+
+            // reset pointers
+            deleted_node->parent->children[quadrant] = NULL;
+
+            if (deleted_node->down != NULL)
+                deleted_node->down->up = deleted_node->up;
+
+            if (deleted_node->up != NULL)
+                deleted_node->up->down = deleted_node->down;
+
+            // reset parent's pointers
+            update_square(deleted_node->parent);
+
+            // reset pointer to parent
+            deleted_node->parent = NULL;
+
+            free(deleted_node->center);
+            free(deleted_node);
+        } while(node != NULL);
+
+        return true;
+    }
+    return false;
+}
+
 bool Quadtree_remove_helper(Quadtree* node, Point* p) {
     if (node == NULL)  // shouldn't happen, but just in case...
         return false;
 
     if (!in_range(node, p))  // check to make sure p is within the boundaries
         return false;
+
+    // yay, we found it!
+    if (Quadtree_remove_node(node, p))
+        return true;
+
     // call starts at root of the highest-order tree
     // children[i] is quadrant i+1, relative to node
     int quadrant = get_quadrant(node->center, p);
 
     // no such child on this level
     if (node->children[quadrant] == NULL) {
-        // in case we didn't catch this earlier
-        if (!node->is_square && Point_equals(*node->center, *p)) {
-            do {
-                // leaf nodes are guaranteed parent nodes
-                quadrant = get_quadrant(node->parent->center, p);
-
-                // reset pointers
-                node->parent->children[quadrant] = NULL;
-
-                if (node->down != NULL)
-                    node->down->up = node->up;
-
-                if (node->up != NULL)
-                    node->up->down = node->down;
-
-                // reset parent's pointers
-                update_square(node->parent);
-
-                // reset pointer to parent
-                node->parent = NULL;
-
-                Node* old_node = node;
-                node = node->down;
-
-                free(old_node->center);
-                free(old_node);
-            } while(node != NULL);
-
+        if (Quadtree_remove_node(node->children[quadrant], p))
             return true;
-        }
 
         // move down a level and continue if possible
-        else if (node->down != NULL)
+        if (node->down != NULL)
             return Quadtree_remove_helper(node->down, p);
 
         // otherwise, conclusively not found
@@ -306,7 +322,12 @@ bool Quadtree_remove_helper(Quadtree* node, Point* p) {
     }
 
     // otherwise, recurse on quadrants
-    return Quadtree_remove_helper(node->children[quadrant], p);
+    if (node->children[quadrant]->is_square)
+        return Quadtree_remove_helper(node->children[quadrant], p);
+    else if (Quadtree_remove_node(node->children[quadrant], p))
+        return true;
+    else
+        return node->down != NULL && Quadtree_remove_helper(node->down, p);
 }
 
 bool Quadtree_remove(Quadtree* node, Point* p) {
