@@ -190,7 +190,8 @@ static inline Point get_new_center(Node* node, int quadrant) {
  * buffer - the buffer to write to
  */
 static inline void Node_string(Node* node, char* buffer) {
-    sprintf(buffer, "Node{is_square = %s, center = (%f, %f), length = %lf, parent = %s, up = %s, down = %s, children = {%s, %s, %s, %s}}",
+    sprintf(buffer, "Node{id = %llu, is_square = %s, center = (%f, %f), length = %lf, parent = %s, up = %s, down = %s, children = {%s, %s, %s, %s}}",
+        (unsigned long long)node->id,
         (node->is_square ? "YES" : "NO"), node->center->x, node->center->y, node->length,
         (node->parent == NULL ? "NO" : "YES"), (node->up == NULL ? "NO" : "YES"),
         (node->down == NULL ? "NO" : "YES"),

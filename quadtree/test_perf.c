@@ -4,7 +4,7 @@ Testing suite for performance of Quadtrees
 
 #include "test.h"
 
-/*void print_Quadtree(Quadtree* root) {
+void print_Quadtree(Quadtree* root) {
     printf("Node[id=%llu, center=(%lf, %lf), length=%lf, is_square=%d",
         (unsigned long long)root->id, root->center->x, root->center->y, root->length, root->is_square);
 
@@ -46,7 +46,7 @@ Testing suite for performance of Quadtrees
     if (root->children[1] != NULL)
         print_Quadtree(root->children[1]);
 
-}*/
+}
 
 void test_powers_of_two() {
     Marsaglia_srand(2);
@@ -131,8 +131,9 @@ void test_random_n(const uint64_t num_samples) {
     #else
     printf("%llu, %.8lf, ", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
     #endif
-/*
     // now to remove everything, in order
+
+    print_Quadtree(q1);
 
     total_cycles = 0;
 
@@ -141,6 +142,14 @@ void test_random_n(const uint64_t num_samples) {
         clock_t start = clock();
         bool result = Quadtree_remove(q1, points + i);
         clock_t end = clock();
+        if (!result) {
+            printf("%llu\n", (unsigned long long)i);
+            char buffer[1000];
+            Point_string(points + i, buffer);
+            puts(buffer);
+            //print_Quadtree(q1);
+            //getchar();
+        }
         count += Quadtree_search(q1, points + i);
         time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
         total_cycles += (end - start);
@@ -161,14 +170,14 @@ void test_random_n(const uint64_t num_samples) {
     printf("Levels: %llu\nSearch count: %llu\n", (unsigned long long)i, (unsigned long long)count);
 
     #ifdef VERBOSE
-    printf("Number of leftover nodes (should be 1, the root): %llu\n", (unsigned long long)Quadtree_uproot(q1));
-    #else*/
+    printf("Number of leftover nodes (should be 0): %llu\n", (unsigned long long)Quadtree_uproot(q1));
+    #else
     Quadtree_uproot(q1);
-//    #endif
+    #endif
 }
 
 void test_random_2_10() {
-    test_random_n(1L << 10);
+    test_random_n(1L << 8);
 }
 
 void test_random_2_15() {

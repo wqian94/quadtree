@@ -26,7 +26,7 @@ test: testcompile
 	$(RM) $@
 	mtrace mtrace/mtrace.$(NOW)
 
-test-perf: TESTFLAG := -DVERBOSE
+test-perf: TESTFLAG := -DVERBOSE -DQUADTREE_TEST
 #test-perf: CC := clang
 test-perf: test-perf-compile
 	#numactl --cpunodebind=0 ./test
@@ -42,8 +42,8 @@ test-perf-quick-run:
 	$(RM) test
 
 #ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
-#test-perf-compile: CFLAGS += -O0
-test-perf-compile: CFLAGS += -O0 -fsanitize=address
+test-perf-compile: CFLAGS += -O0
+#test-perf-compile: CFLAGS += -O0 -fsanitize=address
 test-perf-compile: $(OBJS) test_perf.o
 	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
 

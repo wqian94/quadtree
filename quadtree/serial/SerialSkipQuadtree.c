@@ -260,14 +260,10 @@ static inline void update_square(Quadtree* node) {
  * Removes all copies of node from the tree if it matches p.
  */
 bool Quadtree_remove_node(Quadtree* node, Point* p) {
-    /*char buf1[1000], buf2[1000];
-    Point_string(node->center, buf1);
-    Point_string(p, buf2);
-    puts(buf1);
-    puts(buf2);*/
     if (!node->is_square && Point_equals(*node->center, *p)) {
         do {
             Node* deleted_node = node;
+            Node* parent = node->parent;
             node = node->down;
 
             // leaf nodes are guaranteed parent nodes
@@ -282,18 +278,36 @@ bool Quadtree_remove_node(Quadtree* node, Point* p) {
             if (deleted_node->up != NULL)
                 deleted_node->up->down = deleted_node->down;
 
-            // reset parent's pointers
-            update_square(deleted_node->parent);
-
             // reset pointer to parent
             deleted_node->parent = NULL;
 
             free(deleted_node->center);
             free(deleted_node);
+
+            // reset parent's pointers
+            update_square(parent);
         } while(node != NULL);
 
         return true;
     }
+
+    char buf1[1000], buf2[1000];
+    Point_string(node->center, buf1);
+    Point_string(p, buf2);
+    printf("%llu\n", (unsigned long long)node->id);
+    puts(buf1);
+    puts(buf2);
+
+    //print_Quadtree(node);
+
+    /*while (node->parent != NULL)
+        node = node->parent;
+
+    print_Quadtree(node);
+
+    Quadtree_uproot(node);
+    exit(0);*/
+
     return false;
 }
 
@@ -303,6 +317,17 @@ bool Quadtree_remove_node(Quadtree* node, Point* p) {
  * Invariant: node is always a square.
  */
 bool Quadtree_remove_helper(Quadtree* node, Point* p) {
+/*    if (node == NULL)
+        return false;
+
+    if (!in_range(node, p))
+        return false;
+
+    // recurses from topmost root node
+    int quadrant = get_quadrant(node->center, p);
+    Node* child = node->children[quadrant];
+
+    if (child
 /*    if (node == NULL)  // shouldn't happen, but just in case...
         return false;
 
