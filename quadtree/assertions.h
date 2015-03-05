@@ -17,7 +17,7 @@ static uint64_t TOTAL_ASSERTIONS = 0, PASSED_ASSERTIONS = 0;
 #define assertPoint(expected, actual, text) assert_point(__FILE__, __LINE__, expected, actual, text)
 #define assertError(text) assert_error(__FILE__, __LINE__, text)
 
-static inline void assert_long(char* file, int line, long long expected, long long actual, char* text) {
+static inline void assert_long(char *file, int line, long long expected, long long actual, char *text) {
     printf("%s: line %4d: assert(%s == %lld)...", file, line, text, expected);
     fflush(stdout);
     if (actual != expected)
@@ -28,7 +28,7 @@ static inline void assert_long(char* file, int line, long long expected, long lo
     PASSED_ASSERTIONS += actual == expected;
 }
 
-static inline void assert_double(char* file, int line, float64_t expected, float64_t actual, char* text) {
+static inline void assert_double(char *file, int line, float64_t expected, float64_t actual, char *text) {
     printf("%s: line %4d: assert(%s == %lf)...", file, line, text, expected);
     fflush(stdout);
     if (actual != expected)
@@ -39,7 +39,7 @@ static inline void assert_double(char* file, int line, float64_t expected, float
     PASSED_ASSERTIONS += actual == expected;
 }
 
-static inline void assert_true(char* file, int line, bool actual, char* text) {
+static inline void assert_true(char *file, int line, bool actual, char *text) {
     printf("%s: line %4d: assert(%s == true)...", file, line, text);
     fflush(stdout);
     printf("%s\n", actual == true ? "OK" : " FAILED");
@@ -48,7 +48,7 @@ static inline void assert_true(char* file, int line, bool actual, char* text) {
     PASSED_ASSERTIONS += actual == true;
 }
 
-static inline void assert_false(char* file, int line, bool actual, char* text) {
+static inline void assert_false(char *file, int line, bool actual, char *text) {
     printf("%s: line %4d: assert(%s == false)...", file, line, text);
     fflush(stdout);
     printf("%s\n", actual == false ? "OK" : " FAILED");
@@ -57,7 +57,7 @@ static inline void assert_false(char* file, int line, bool actual, char* text) {
     PASSED_ASSERTIONS += actual == false;
 }
 
-static inline void assert_point(char* file, int line, Point expected, Point actual, char* text) {
+static inline void assert_point(char *file, int line, Point expected, Point actual, char *text) {
     printf("%s: line %4d: assert(%s == Point(%lf, %lf))...", file, line, text, expected.x, expected.y);
     fflush(stdout);
     bool equals = Point_equals(actual, expected);
@@ -69,7 +69,7 @@ static inline void assert_point(char* file, int line, Point expected, Point actu
     PASSED_ASSERTIONS += equals;
 }
 
-static inline void assert_error(char* file, int line, char* text) {
+static inline void assert_error(char *file, int line, char *text) {
     printf("%s: line %4d: assert(%s)... FAILED...\n", file, line, text);
 
     TOTAL_ASSERTIONS++;

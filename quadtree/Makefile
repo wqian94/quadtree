@@ -1,58 +1,105 @@
+export
+
 CC := gcc
-CFLAGS := -std=gnu99 -g
+CFLAGS := -std=c99 -g
 RM := rm -f
 TESTFLAG := 
+PRERUN := 
+POSTRUN := 
+NONUMA := 
+OBJS := 
+
+NOW := $(shell date -u +%s)
 
 HEADERS := \
+	util.h \
 	types.h \
 	Point.h \
 	Quadtree.h
 
-OBJ_SERIAL := \
-	serial/SerialSkipQuadtree.o \
-	serial/Point.o
+TEST_HEADERS := \
+	test.h \
+	assertions.h
 
-OBJS := $(OBJ_SERIAL)
+OBJS_naive := naive/Point.o naive/Quadtree.o
+OBJS_serial := serial/Point.o serial/Quadtree.o
 
-NOW := $(shell date -u +%s)
+.PHONY: all
+all:
+	@echo "\
+\`make all' is not valid. Here are a list of targets to use:\n\
+\n\
+Make targets:\n\
+=============\n\
+test-%: run correctness and performance tests on variant %\n\
+test-%-correctness: run correctness tests on variant %\n\
+test-%-performance: run performance tests on variant %\n\
+benchmark-%: run benchmarks on variant %\n\
+main-%: compile main program on variant %\n\
+\n\
+Variants:\n\
+=========\n\
+naive: the naive, simple implementation\n\
+"
 
-all: CFLAGS += -O3
-all: clean $(OBJS) main.o
-	$(CC) $(OBJS) main.o $(CFLAGS) -o quadtree
+# for no NUMA
+ifdef NONUM
+NONUMA := numactl --cpunodebind=0
+endif
 
-test: CFLAGS += -O0
-test: testcompile
-	export MALLOC_TRACE=mtrace/mtrace.$(NOW); ./$@
-	$(RM) $@
+# for sanitize
+ifdef SANITIZE_ADDRESS
+CC := clang
+CFLAGS += -fsanitize=address
+PRERUN += export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer;
+endif
+
+.PHONY: main-%
+main-%: CFLAGS += -O3
+main-%:
+	$(MAKE) run-main
+
+.PHONY: test-%-correctness
+test-%-correctness: CFLAGS += -DDEBUG -O0
+test-%-correctness: TESTFLAG += -DQUADTREE_TEST
+test-%-correctness: PRERUN += export MALLOC_TRACE=mtrace/mtrace.$(NOW);
+test-%-correctness: OBJS := OBJS_$*
+test-%-correctness:
+	$(MAKE) run-test
 	mtrace mtrace/mtrace.$(NOW)
 
-test-perf: TESTFLAG := -DVERBOSE -DQUADTREE_TEST
-#test-perf: CC := clang
-test-perf: test-perf-compile
-	#numactl --cpunodebind=0 ./test
-	./test
-	$(RM) test
+.PHONY: test-%-performance
+test-%-performance: CFLAGS += -O3
+test-%-performance: OBJS := OBJS_$*
+test-%-performance: TESTFLAG += -DVERBOSE
+test-%-performance:
+	$(MAKE) run-test
 
-test-perf-quick: test-perf-compile test-perf-quick-run
-test-perf-quick-run:
+.PHONY: test-%
+test-%:
+	$(MAKE) test-$*-correctness
+	$(MAKE) test-$*-performance
+
+.PHONY: benchmark-%
+benchmark-%: PRERUN += mkdir -p benchmark;
+benchmark-%: POSTRUN += > test-perf/test-perf-$(NOW).txt
+benchmark-%: OBJS := OBJS_$*
+benchmark-%:
 	mkdir -p test-perf
-	#numactl --cpunodebind=0 ./test > test-perf/test-perf-$(NOW).txt
-	./test > test-perf/test-perf-$(NOW).txt
+	$(MAKE) run-test_perf
 	cat test-perf/test-perf-$(NOW).txt >> test-perf/test-perf.txt
-	$(RM) test
 
-#ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer
-test-perf-compile: CFLAGS += -O0
-#test-perf-compile: CFLAGS += -O0 -fsanitize=address
-test-perf-compile: $(OBJS) test_perf.o
-	$(CC) $(OBJS) test_perf.o $(CFLAGS) -o test
+.PHONY: run-%
+run-%: $(OBJS) compile-% %.o
+	$(PRERUN); $(NONUMA) ./% $(POSTRUN)
 
-testcompile: TESTFLAG := -DQUADTREE_TEST
-testcompile: $(OBJS) test.o
-	$(CC) $(OBJS) test.o -DDEBUG -O0 -o test
+.PHONY: compile-%
+compile-%: %.o
+	$(CC) $(CFLAGS) $(OBJS) %.o -o %
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(TESTFLAG)
 
+.PHONY: clean
 clean:
-	$(RM) $(OBJS) main.o test.o
+	-$(RM) $(OBJS) main.o test.o

@@ -31,7 +31,7 @@ typedef struct SerialSkipQuadtreeNode_t Node;
  */
 struct SerialSkipQuadtreeNode_t {
     bool is_square;
-    Point* center;
+    Point *center;
     float64_t length;
     Node *parent;
     Node *up, *down;
@@ -47,9 +47,24 @@ typedef struct ParallelSkipQuadtreeNode_t Node;
 
 typedef Node Quadtree;
 
+/*
+ * struct QuadtreeFreeResult_t
+ *
+ * Contains information about how many total nodes were freed and how many leaf nodes
+ * were freed during a freeing operation. In addition, also contains information about
+ * how many levels were freed.
+ *
+ * total - the total number of nodes freed, including intermediate nodes
+ * leaf - the number of leaf nodes freed
+ * levels - the number of levels freed
+ */
+typedef struct QuadtreeFreeResult_t {
+    uint64_t total, leaf, levels;
+} QuadtreeFreeResult;
+
 #ifdef QUADTREE_TEST
 /*
- * Node_create
+ * Node_init
  *
  * Allocates memory for and initializes an empty leaf node in the quadtree.
  *
@@ -59,15 +74,15 @@ typedef Node Quadtree;
  *
  * Returns a pointer to the created node.
  */
-Node* Node_create(float64_t length, Point center);
+Node* Node_init(float64_t length, Point center);
 #endif
 
 /*
- * Quadtree_create
+ * Quadtree_init
  *
  * Allocates memory for and initializes an empty internal node in the quadtree.
  *
- * In SerialSkipQuadtree, this is implemented as a wrapper for Node_create, setting
+ * In SerialSkipQuadtree, this is implemented as a wrapper for Node_init, setting
  * the resultant node's is_square boolean to true before returning it.
  *
  * length - the "length" of the node -- irrelevant for a leaf node, but necessary
@@ -76,7 +91,7 @@ Node* Node_create(float64_t length, Point center);
  *
  * Returns a pointer to the created node.
  */
-Quadtree* Quadtree_create(float64_t length, Point center);
+Quadtree* Quadtree_init(float64_t length, Point center);
 
 /*
  * Quadtree_search
@@ -88,19 +103,22 @@ Quadtree* Quadtree_create(float64_t length, Point center);
  *
  * Returns whether p is in the quadtree represented by node.
  */
-bool Quadtree_search(Quadtree* node, Point* p);
+bool Quadtree_search(Quadtree *node, Point p);
 
 /*
  * Quadtree_add
  *
  * Adds p to the quadtree represented by node, the root.
  *
+ * Will not add duplicate points to the tree, as defined by Point_equals. If p is already
+ * in the tree, this function will return false.
+ *
  * node - the root node of the tree to add to
  * p - the point being added
  *
- * Returns whether the add was successful
+ * Returns whether the add was successful.
  */
-bool Quadtree_add(Quadtree* node, Point* p);
+bool Quadtree_add(Quadtree *node, Point p);
 
 /*
  * Quadtree_remove
@@ -113,21 +131,21 @@ bool Quadtree_add(Quadtree* node, Point* p);
  * Returns whether the remove was successful: false typically indicates that the node
  * wasn't in the tree to begin with.
  */
-bool Quadtree_remove(Quadtree* node, Point* p);
+bool Quadtree_remove(Quadtree *node, Point p);
 
 /*
- * Quadtree_uproot
+ * Quadtree_free
  *
- * Uproot removes the entire tree after freeing every node.
+ * Frees the entire tree one node at a time
  *
  * The freeing order is such that, if a free fails, retrying won't
  * cause memory leaks.
  *
- * This can also be used to uproot subtrees.
+ * This can also be used to free subtrees.
  *
- * Returns the total number of nodes uprooted
+ * Returns a QuadtreeFreeResult.
  */
- uint64_t Quadtree_uproot(Quadtree* root);
+QuadtreeFreeResult Quadtree_free(Quadtree *root);
 
 /*
  * in_range
@@ -141,7 +159,7 @@ bool Quadtree_remove(Quadtree* node, Point* p);
  *
  * Returns whether p is within the boundaries of n.
  */
-static inline bool in_range(Node* n, Point* p) {
+static inline bool in_range(Node *n, Point *p) {
     return n->center->x - n->length / 2 <= p->x &&
         n->center->x + n->length / 2 > p->x &&
         n->center->y - n->length / 2 <= p->y &&
@@ -158,7 +176,7 @@ static inline bool in_range(Node* n, Point* p) {
  *
  * Returns the quadrant that p is in, relative to origin.
  */
-static inline int get_quadrant(Point* origin, Point* p) {
+static inline int8_t get_quadrant(Point *origin, Point *p) {
     return (p->x >= origin->x) + 2 * (p->y >= origin->y);
 }
 
@@ -173,7 +191,7 @@ static inline int get_quadrant(Point* origin, Point* p) {
  *
  * Returns the center point for the given quadrant of node.
  */
-static inline Point get_new_center(Node* node, int quadrant) {
+static inline Point get_new_center(Node *node, int8_t quadrant) {
     return (Point){
         .x = node->center->x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
         .y = node->center->y + ((quadrant / 2) - 0.5) * 0.5 * node->length
@@ -189,7 +207,7 @@ static inline Point get_new_center(Node* node, int quadrant) {
  * node - the node to write
  * buffer - the buffer to write to
  */
-static inline void Node_string(Node* node, char* buffer) {
+static inline void Node_string(Node *node, char *buffer) {
     sprintf(buffer, "Node{id = %llu, is_square = %s, center = (%f, %f), length = %lf, parent = %s, up = %s, down = %s, children = {%s, %s, %s, %s}}",
         (unsigned long long)node->id,
         (node->is_square ? "YES" : "NO"), node->center->x, node->center->y, node->length,
@@ -203,5 +221,12 @@ static inline void Node_string(Node* node, char* buffer) {
         node->children[0], node->children[1], node->children[2], node->children[3]);*/
 }
 #endif
+
+// just for fun
+#define Quadtree_plant Quadtree_init
+#define Quadtree_climb Quadtree_search
+#define Quadtree_grow Quadtree_add
+#define Quadtree_prune Quadtree_remove
+#define Quadtree_uproot Quadtree_free
 
 #endif

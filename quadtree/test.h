@@ -22,14 +22,14 @@ extern uint32_t Marsaglia_rand();
 
 typedef struct {
     bool on;
-    uint32_t* food;
-    uint32_t* first;
-    uint32_t* last;
+    uint32_t *food;
+    uint32_t *first;
+    uint32_t *last;
 } TestRandTrough;
 
 static TestRandTrough test_rand_trough = {.on = false, .food = NULL, .first = NULL, .last = NULL};
 
-void test_rand_feed(uint32_t* food, uint32_t length) {
+void test_rand_feed(uint32_t *food, uint32_t length) {
     test_rand_trough.on = true;
     test_rand_trough.first = food;
     test_rand_trough.last = food + length - 1;
@@ -65,7 +65,7 @@ int test_rand() {
 
 static uint64_t TOTAL_TESTS = 0, PASSED_TESTS = 0;
 
-void start_test(void (*func)(), const char* suite_name) {
+void start_test(void (*func)(), const char *suite_name) {
     uint64_t prev_total_asserts = total_assertions();
     uint64_t prev_passed_asserts = passed_assertions();
     printf("\n===Testing %s===\n", suite_name);
