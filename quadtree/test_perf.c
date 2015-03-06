@@ -174,7 +174,7 @@ void test_random_n(const uint64_t num_samples) {
         if (!result) {
             char buffer[1000];
             Point_string(points + i, buffer);
-            puts(buffer);
+            //puts(buffer);
         }
         clock_t end = clock();
         count += Quadtree_search(q1, points[i]);

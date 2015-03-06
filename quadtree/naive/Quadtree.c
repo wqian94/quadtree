@@ -325,7 +325,7 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
     // if the target child is NULL, we try to drop down a level
     if (node->children[quadrant] == NULL) {
         if (node->down != NULL)
-            return Quadtree_search_helper(node->down, p);
+            return Quadtree_remove_helper(node->down, p);
         // otherwise, we're on the bottom-most level and just can't find the point
         else
             return false;
