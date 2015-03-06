@@ -116,10 +116,8 @@ void test_random_n(const uint64_t num_samples) {
     #else
     printf("%llu, %.8lf, ", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
     #endif
+
     // now to remove everything, in order
-
-    //print_Quadtree(q1);
-
     total_cycles = 0;
 
     uint64_t count = 0;
@@ -138,13 +136,9 @@ void test_random_n(const uint64_t num_samples) {
     printf("%.8lf, ", total_cycles / (float64_t)CLOCKS_PER_SEC);
     #endif
 
-    Node* q2 = q1;
-    for (i = 0; q2 != NULL; i++)
-        q2 = q2->up;
-
+    #ifdef VERBOSE
     printf("Search count: %llu\n", (unsigned long long)count);
 
-    #ifdef VERBOSE
     QuadtreeFreeResult result = Quadtree_free(q1);
     printf("Levels: %llu\nTotal number of leftover nodes (should be 1): %llu\nNumber of leftover leaf nodes (should be 0): %llu\n",
         (unsigned long long)result.levels, (unsigned long long)result.total, (unsigned long long)result.leaf);
@@ -186,9 +180,9 @@ int main(int argc, char* argv[]) {
     start_test(test_random_2_10, "Random 2^10 test");
     start_test(test_random_2_15, "Random 2^15 test");
     start_test(test_random_2_20, "Random 2^20 test");
-    start_test(test_random_2_25, "Random 2^25 test");
-    start_test(test_random_2_26, "Random 2^26 test");
-    start_test(test_random_2_27, "Random 2^27 test");
+    //start_test(test_random_2_25, "Random 2^25 test");
+    //start_test(test_random_2_26, "Random 2^26 test");
+    //start_test(test_random_2_27, "Random 2^27 test");
 
     printf("\n[Ending tests]\n");
     /*printf("=============================================\n");
@@ -202,9 +196,9 @@ int main(int argc, char* argv[]) {
     test_random_2_10();
     test_random_2_15();
     test_random_2_20();
-    test_random_2_25();
-    test_random_2_26();
-    test_random_2_27();
+    //test_random_2_25();
+    //test_random_2_26();
+    //test_random_2_27();
     printf("\n");
     #endif
     return 0;
