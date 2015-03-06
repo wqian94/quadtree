@@ -79,51 +79,6 @@ void print_Quadtree(Quadtree *root) {
         print_Quadtree(root->children[3]);
 }
 
-void test_powers_of_two() {
-    Marsaglia_srand(2);
-    char buffer[1000];
-    float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
-    Point p1 = Point_init(0, 0);
-    Quadtree* q1 = Quadtree_init(s1, p1);
-
-    test_rand_off();
-
-    uint64_t num_samples = 128;
-
-    float64_t time_samples[num_samples];
-    uint64_t total_cycles = 0;
-
-    uint64_t i;
-    for (i = 0; i < num_samples; i++) {
-        unsigned long long denom = 1L << i;
-        if (denom == 0)
-            break;
-        double x = 0.25 * s1 / denom;
-        double y = 0.25 * s1 / denom;
-        if (abs(x) <= PRECISION && abs(y) <= PRECISION)
-            break;
-        Point p = Point_init(x, y);
-        clock_t start = clock();
-        bool result = Quadtree_add(q1, p);
-        clock_t end = clock();
-        if (result) {
-            time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
-            total_cycles += (end - start);
-        }
-        else
-            i--;
-    }
-    num_samples = i;
-
-    #ifdef VERBOSE
-    printf("Total time for %llu inserts: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
-    #else
-    printf("%llu, %.8lf, ", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
-    #endif
-
-    Quadtree_free(q1);
-}
-
 void test_random_n(const uint64_t num_samples) {
     Marsaglia_srand(num_samples % ((1L << 32) - 1));
     char buffer[1000];
@@ -171,11 +126,6 @@ void test_random_n(const uint64_t num_samples) {
     for (i = 0; i < num_samples; i++) {
         clock_t start = clock();
         bool result = Quadtree_remove(q1, points[i]);
-        if (!result) {
-            char buffer[1000];
-            Point_string(points + i, buffer);
-            //puts(buffer);
-        }
         clock_t end = clock();
         count += Quadtree_search(q1, points[i]);
         time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
@@ -192,8 +142,6 @@ void test_random_n(const uint64_t num_samples) {
     for (i = 0; q2 != NULL; i++)
         q2 = q2->up;
 
-    //print_Quadtree(q1);
-
     printf("Search count: %llu\n", (unsigned long long)count);
 
     #ifdef VERBOSE
@@ -206,7 +154,7 @@ void test_random_n(const uint64_t num_samples) {
 }
 
 void test_random_2_10() {
-    test_random_n(1L << 8);
+    test_random_n(1L << 10);
 }
 
 void test_random_2_15() {
@@ -235,13 +183,12 @@ int main(int argc, char* argv[]) {
     #ifdef VERBOSE
     printf("[Beginning tests]\n");
     
-    //start_test(test_powers_of_two, "Powers of two test");
     start_test(test_random_2_10, "Random 2^10 test");
-    //start_test(test_random_2_15, "Random 2^15 test");
-    //start_test(test_random_2_20, "Random 2^20 test");
-    //start_test(test_random_2_25, "Random 2^25 test");
-    //start_test(test_random_2_26, "Random 2^26 test");
-    //start_test(test_random_2_27, "Random 2^27 test");
+    start_test(test_random_2_15, "Random 2^15 test");
+    start_test(test_random_2_20, "Random 2^20 test");
+    start_test(test_random_2_25, "Random 2^25 test");
+    start_test(test_random_2_26, "Random 2^26 test");
+    start_test(test_random_2_27, "Random 2^27 test");
 
     printf("\n[Ending tests]\n");
     /*printf("=============================================\n");
@@ -252,7 +199,6 @@ int main(int argc, char* argv[]) {
     printf("FAILED TESTS: %4lld | FAILED ASSERTIONS: %5lld\n", total_tests() - passed_tests(), total_assertions() - passed_assertions());
     printf("================== | ========================\n");*/
     #else
-    //test_powers_of_two();
     test_random_2_10();
     test_random_2_15();
     test_random_2_20();
