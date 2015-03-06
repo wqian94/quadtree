@@ -1,8 +1,11 @@
 export
 
+SHELL := /bin/bash
+
 CC := gcc
 CFLAGS := -std=c99 -g
 RM := rm -f
+CPU_NODE := 0
 
 NOW := $(shell date -u +%s)
 
@@ -54,9 +57,10 @@ PRERUN += export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer;
 endif
 
 # for OFLAG in benchmarking
-ifndef OFLAG
-OFLAG := O3
-endif
+OFLAG ?= O3
+
+# for trial counts in benchmarking
+TRIALS ?= 1
 
 .PHONY: main-%
 main-%:
@@ -91,24 +95,22 @@ benchmark-%-O1:
 
 .PHONY: benchmark-%-O2
 benchmark-%-O2:
-	$(MAKE) -e benchmark-$* OFLAG="O0"
+	$(MAKE) -e benchmark-$* OFLAG="O2"
 
 .PHONY: benchmark-%-O3
 benchmark-%-O3:
 	$(MAKE) -e benchmark-$* OFLAG="O3"
 
 .PHONY: benchmark-%
-benchmark-%: PRERUN += mkdir -p benchmark;
-benchmark-%: POSTRUN += > test-perf/results/test-$(OFLAG)-$(NOW).txt
-benchmark-%: CFLAGS += -$(OFLAG)
 benchmark-%:
 	mkdir -p test-perf/bin test-perf/results
-	$(MAKE) -e run-benchmark-test_perf OBJS="$(OBJS_$*)"
+	$(MAKE) -e run-benchmark-test_perf OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -$(OFLAG)"
 
 .PHONY: run-benchmark-%
+run-benchmark-%: POSTRUN := > test-perf/results/test-$(OFLAG)-$(NOW)
 run-benchmark-%: $(OBJS) compile-% %.o
 	mv $* test-perf/bin/test-$(OFLAG)-$(NOW)
-	$(PRERUN) $(NUMACTL) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN)
+	for i in {1..$(TRIALS)};do $(PRERUN) $(NUMACTL) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN)-$$i.txt;done
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o

@@ -117,6 +117,23 @@ void test_random_n(const uint64_t num_samples) {
     printf("%llu, %.8lf, ", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
     #endif
 
+    // then to try searching for everything
+    total_cycles = 0;
+
+    for (i = 0; i < num_samples; i++) {
+        clock_t start = clock();
+        bool result = Quadtree_search(q1, points[i]);
+        clock_t end = clock();
+        time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
+        total_cycles += (end - start);
+    }
+
+    #ifdef VERBOSE
+    printf("Total time for %llu queries: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    #else
+    printf("%.8lf, ", total_cycles / (float64_t)CLOCKS_PER_SEC);
+    #endif
+
     // now to remove everything, in order
     total_cycles = 0;
 
@@ -196,9 +213,9 @@ int main(int argc, char* argv[]) {
     test_random_2_10();
     test_random_2_15();
     test_random_2_20();
-    //test_random_2_25();
-    //test_random_2_26();
-    //test_random_2_27();
+    test_random_2_25();
+    test_random_2_26();
+    test_random_2_27();
     printf("\n");
     #endif
     return 0;
