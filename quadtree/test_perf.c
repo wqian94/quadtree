@@ -4,41 +4,67 @@ Testing suite for performance of Quadtrees
 
 #include "test.h"
 
-void print_Quadtree(Quadtree* root) {
-    printf("Node[id=%llu, center=(%lf, %lf), length=%lf, is_square=%d",
-        (unsigned long long)root->id, root->center->x, root->center->y, root->length, root->is_square);
+void print_Quadtree(Quadtree *root) {
+    printf("Node[pointer=%p, ", root);
+#ifdef QUADTREE_TEST
+    printf("id=%llu, ", (unsigned long long)root->id);
+#endif
+    printf("center=(%lf, %lf), length=%lf, is_square=%d",
+        root->center->x, root->center->y, root->length, root->is_square);
 
     if (root->parent != NULL)
+#ifdef QUADTREE_TEST
         printf(", parent=%llu", (unsigned long long)root->parent->id);
+#else
+        printf(", parent=%p", root->parent);
+#endif
 
     if (root->up != NULL)
+#ifdef QUADTREE_TEST
         printf(", up=%llu", (unsigned long long)root->up->id);
+#else
+        printf(", up=%p", root->up);
+#endif
 
     if (root->down != NULL)
+#ifdef QUADTREE_TEST
         printf(", down=%llu", (unsigned long long)root->down->id);
-
-    if (root->children[3] != NULL)
-        printf(", children[3]=%llu", (unsigned long long)root->children[3]->id);
-
-    if (root->children[2] != NULL)
-        printf(", children[2]=%llu", (unsigned long long)root->children[2]->id);
+#else
+        printf(", down=%p", root->down);
+#endif
 
     if (root->children[0] != NULL)
+#ifdef QUADTREE_TEST
         printf(", children[0]=%llu", (unsigned long long)root->children[0]->id);
+#else
+        printf(", children[0]=%p", root->children[0]);
+#endif
 
     if (root->children[1] != NULL)
+#ifdef QUADTREE_TEST
         printf(", children[1]=%llu", (unsigned long long)root->children[1]->id);
+#else
+        printf(", children[1]=%p", root->children[1]);
+#endif
+
+    if (root->children[2] != NULL)
+#ifdef QUADTREE_TEST
+        printf(", children[2]=%llu", (unsigned long long)root->children[2]->id);
+#else
+        printf(", children[2]=%p", root->children[2]);
+#endif
+
+    if (root->children[3] != NULL)
+#ifdef QUADTREE_TEST
+        printf(", children[3]=%llu", (unsigned long long)root->children[3]->id);
+#else
+        printf(", children[3]=%p", root->children[3]);
+#endif
 
     printf("]\n");
 
     if (root->up != NULL)
         print_Quadtree(root->up);
-
-    if (root->children[2] != NULL)
-        print_Quadtree(root->children[2]);
-
-    if (root->children[3] != NULL)
-        print_Quadtree(root->children[3]);
 
     if (root->children[0] != NULL)
         print_Quadtree(root->children[0]);
@@ -46,14 +72,19 @@ void print_Quadtree(Quadtree* root) {
     if (root->children[1] != NULL)
         print_Quadtree(root->children[1]);
 
+    if (root->children[2] != NULL)
+        print_Quadtree(root->children[2]);
+
+    if (root->children[3] != NULL)
+        print_Quadtree(root->children[3]);
 }
 
 void test_powers_of_two() {
     Marsaglia_srand(2);
     char buffer[1000];
     float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
-    Point p1 = Point_create(0, 0);
-    Quadtree* q1 = Quadtree_create(s1, p1);
+    Point p1 = Point_init(0, 0);
+    Quadtree* q1 = Quadtree_init(s1, p1);
 
     test_rand_off();
 
@@ -71,9 +102,9 @@ void test_powers_of_two() {
         double y = 0.25 * s1 / denom;
         if (abs(x) <= PRECISION && abs(y) <= PRECISION)
             break;
-        Point p = Point_create(x, y);
+        Point p = Point_init(x, y);
         clock_t start = clock();
-        bool result = Quadtree_add(q1, &p);
+        bool result = Quadtree_add(q1, p);
         clock_t end = clock();
         if (result) {
             time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
@@ -90,15 +121,15 @@ void test_powers_of_two() {
     printf("%llu, %.8lf, ", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
     #endif
 
-    Quadtree_uproot(q1);
+    Quadtree_free(q1);
 }
 
 void test_random_n(const uint64_t num_samples) {
     Marsaglia_srand(num_samples % ((1L << 32) - 1));
     char buffer[1000];
     float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
-    Point p1 = Point_create(0, 0);
-    Quadtree* q1 = Quadtree_create(s1, p1);
+    Point p1 = Point_init(0, 0);
+    Quadtree* q1 = Quadtree_init(s1, p1);
     Point* points = (Point*)malloc(sizeof(points) * num_samples);
 
     test_rand_off();
@@ -112,16 +143,15 @@ void test_random_n(const uint64_t num_samples) {
     for (i = 0; i < num_samples; i++) {
         double x = (Marsaglia_random() - 0.5) * s1;
         double y = (Marsaglia_random() - 0.5) * s1;
-        points[i] = Point_create(x, y);
+        points[i] = Point_init(x, y);
         clock_t start = clock();
-        bool result = Quadtree_add(q1, points + i);
+        bool result = Quadtree_add(q1, points[i]);
         clock_t end = clock();
         if (result) {
             time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
             total_cycles += (end - start);
         }
         else {
-            Quadtree_remove(q1, points + i);
             i--;
         }
     }
@@ -133,24 +163,21 @@ void test_random_n(const uint64_t num_samples) {
     #endif
     // now to remove everything, in order
 
-    print_Quadtree(q1);
+    //print_Quadtree(q1);
 
     total_cycles = 0;
 
     uint64_t count = 0;
     for (i = 0; i < num_samples; i++) {
         clock_t start = clock();
-        bool result = Quadtree_remove(q1, points + i);
-        clock_t end = clock();
+        bool result = Quadtree_remove(q1, points[i]);
         if (!result) {
-            printf("%llu\n", (unsigned long long)i);
             char buffer[1000];
             Point_string(points + i, buffer);
             puts(buffer);
-            //print_Quadtree(q1);
-            //getchar();
         }
-        count += Quadtree_search(q1, points + i);
+        clock_t end = clock();
+        count += Quadtree_search(q1, points[i]);
         time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
         total_cycles += (end - start);
     }
@@ -165,14 +192,16 @@ void test_random_n(const uint64_t num_samples) {
     for (i = 0; q2 != NULL; i++)
         q2 = q2->up;
 
-    print_Quadtree(q1);
+    //print_Quadtree(q1);
 
-    printf("Levels: %llu\nSearch count: %llu\n", (unsigned long long)i, (unsigned long long)count);
+    printf("Search count: %llu\n", (unsigned long long)count);
 
     #ifdef VERBOSE
-    printf("Number of leftover nodes (should be 0): %llu\n", (unsigned long long)Quadtree_uproot(q1));
+    QuadtreeFreeResult result = Quadtree_free(q1);
+    printf("Levels: %llu\nTotal number of leftover nodes (should be 1): %llu\nNumber of leftover leaf nodes (should be 0): %llu\n",
+        (unsigned long long)result.levels, (unsigned long long)result.total, (unsigned long long)result.leaf);
     #else
-    Quadtree_uproot(q1);
+    Quadtree_free(q1);
     #endif
 }
 

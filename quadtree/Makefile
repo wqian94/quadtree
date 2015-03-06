@@ -3,11 +3,6 @@ export
 CC := gcc
 CFLAGS := -std=c99 -g
 RM := rm -f
-TESTFLAG := 
-PRERUN := 
-POSTRUN := 
-NONUMA := 
-OBJS := 
 
 NOW := $(shell date -u +%s)
 
@@ -54,48 +49,66 @@ CFLAGS += -fsanitize=address
 PRERUN += export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer;
 endif
 
+# for OFLAG in benchmarking
+ifndef OFLAG
+OFLAG := -O3
+endif
+
 .PHONY: main-%
-main-%: CFLAGS += -O3
 main-%:
-	$(MAKE) run-main
+	$(MAKE) -e run-main
 
 .PHONY: test-%-correctness
 test-%-correctness: CFLAGS += -DDEBUG -O0
 test-%-correctness: TESTFLAG += -DQUADTREE_TEST
 test-%-correctness: PRERUN += export MALLOC_TRACE=mtrace/mtrace.$(NOW);
-test-%-correctness: OBJS := OBJS_$*
 test-%-correctness:
-	$(MAKE) run-test
+	$(MAKE) -e run-test OBJS="$(OBJS_$*)"
 	mtrace mtrace/mtrace.$(NOW)
 
 .PHONY: test-%-performance
 test-%-performance: CFLAGS += -O3
-test-%-performance: OBJS := OBJS_$*
 test-%-performance: TESTFLAG += -DVERBOSE
 test-%-performance:
-	$(MAKE) run-test
+	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)"
 
 .PHONY: test-%
 test-%:
-	$(MAKE) test-$*-correctness
-	$(MAKE) test-$*-performance
+	$(MAKE) -e test-$*-correctness
+	$(MAKE) -e test-$*-performance
+
+.PHONY: benchmark-%-O0
+benchmark-%-O0:
+	$(MAKE) -e benchmark-$* OFLAG="-O0"
+
+.PHONY: benchmark-%-O1
+benchmark-%-O1:
+	$(MAKE) -e benchmark-$* OFLAG="-O1"
+
+.PHONY: benchmark-%-O2
+benchmark-%-O2:
+	$(MAKE) -e benchmark-$* OFLAG="-O0"
+
+.PHONY: benchmark-%-O3
+benchmark-%-O3:
+	$(MAKE) -e benchmark-$* OFLAG="-O3"
 
 .PHONY: benchmark-%
 benchmark-%: PRERUN += mkdir -p benchmark;
 benchmark-%: POSTRUN += > test-perf/test-perf-$(NOW).txt
-benchmark-%: OBJS := OBJS_$*
+benchmark-%: CFLAGS += $(OFLAG)
 benchmark-%:
 	mkdir -p test-perf
-	$(MAKE) run-test_perf
+	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)"
 	cat test-perf/test-perf-$(NOW).txt >> test-perf/test-perf.txt
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
-	$(PRERUN); $(NONUMA) ./% $(POSTRUN)
+	$(PRERUN) $(NONUMA) ./$* $(POSTRUN)
 
 .PHONY: compile-%
 compile-%: %.o
-	$(CC) $(CFLAGS) $(OBJS) %.o -o %
+	$(CC) $(CFLAGS) $(OBJS) $*.o -o $*
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@ $(TESTFLAG)

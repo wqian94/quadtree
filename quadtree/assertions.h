@@ -60,7 +60,7 @@ static inline void assert_false(char *file, int line, bool actual, char *text) {
 static inline void assert_point(char *file, int line, Point expected, Point actual, char *text) {
     printf("%s: line %4d: assert(%s == Point(%lf, %lf))...", file, line, text, expected.x, expected.y);
     fflush(stdout);
-    bool equals = Point_equals(actual, expected);
+    bool equals = Point_equals(&actual, &expected);
     if (!equals)
         printf("was actually Point(%lf, %lf)...", actual.x, actual.y);
     printf("%s\n", equals ? "OK" : " FAILED");

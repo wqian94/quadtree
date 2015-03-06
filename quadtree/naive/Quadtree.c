@@ -26,19 +26,20 @@ uint64_t QUADTREE_NODE_COUNT = 0;
 #endif
 
 Node* Node_init(float64_t length, Point center) {
-    Node *node = (Node*)malloc(sizeof(node));
-    *node = (Node){
-        .is_square = false,
-        .center = (Point*)malloc(sizeof(node->center)),
-        .length = length,
-        .parent = NULL,
-        .up = NULL,
-        .down = NULL,
-        .children = {NULL, NULL, NULL, NULL}
+    Node *node = (Node*)malloc(sizeof(Node));
+    node->is_square = false;
+    node->length = length;
+    node->center = (Point*)malloc(sizeof(node->center)),
+    node->parent = NULL;
+    node->up = NULL;
+    node->down = NULL;
+    node->children[0] = NULL;
+    node->children[1] = NULL;
+    node->children[2] = NULL;
+    node->children[3] = NULL;
 #ifdef QUADTREE_TEST
-        , .id = (QUADTREE_NODE_COUNT++)
+    node->id = QUADTREE_NODE_COUNT++;
 #endif
-        };
     Point_copy(&center, node->center);
     return node;
 }
@@ -77,7 +78,7 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     if (!in_range(node, p))
         return false;
 
-    register uint8_t quadrant = get_quadrant(node, p);
+    register uint8_t quadrant = get_quadrant(node->center, p);
 
     // if the target child is NULL, we try to drop down a level
     if (node->children[quadrant] == NULL) {
@@ -136,7 +137,7 @@ Node* Quadtree_add_helper(Node *node, Point *p) {
         return NULL;
 
     // horizontal traversal
-    Node *parent;
+    Node *parent, *node_param = node;
     do {
         parent = node;
         node = parent->children[get_quadrant(parent->center, p)];
@@ -149,10 +150,10 @@ Node* Quadtree_add_helper(Node *node, Point *p) {
     // branch down a level if possible
     Node *down_node = NULL;
     if (parent->down != NULL)
-        if ((down_node = Quadtree_add_helper(node->down, p)) == NULL)
+        if ((down_node = Quadtree_add_helper(parent->down, p)) == NULL)
             return NULL;
 
-    Node *new_node = Node_init(0.5 * parent->length, p);
+    Node *new_node = Node_init(0.5 * parent->length, *p);
     new_node->parent = parent;
 
     if (down_node != NULL) {
@@ -175,14 +176,15 @@ Node* Quadtree_add_helper(Node *node, Point *p) {
 
         // create a new square to contain the sibling and the new node
         uint8_t square_quadrant = quadrant;
-        Node *square = Node_create(0.5 * parent->length, get_new_center(parent, quadrant));
+        Node *square = Quadtree_init(0.5 * parent->length, get_new_center(parent, quadrant));
         square->parent = parent;
 
         // now, we keep splitting until the new node and the sibling are in different quadrants
         register uint8_t sibling_quadrant;
         while ( (sibling_quadrant = get_quadrant(square->center, sibling->center)) ==
-                (quadrant = get_quadrant(square->center, new_center))) {
-            Point_copy(&get_new_center(square, quadrant), square->center);
+                (quadrant = get_quadrant(square->center, new_node->center))) {
+            Point new_square_center = get_new_center(square, quadrant);
+            Point_copy(&new_square_center, square->center);
             square->length *= 0.5;
         }
 
@@ -204,12 +206,16 @@ Node* Quadtree_add_helper(Node *node, Point *p) {
         new_node->parent = square;
         sibling->parent = square;
     }
+
+    return new_node;
 }
 
 bool Quadtree_add(Quadtree *node, Point p) {
     while (rand() % 100 < 50) {
-        if (node->up == NULL)
-            node->up = Node_init(node->length, *node->center);
+        if (node->up == NULL) {
+            node->up = Quadtree_init(node->length, *node->center);
+            node->up->down = node;
+        }
         node = node->up;
     }
 
@@ -255,7 +261,7 @@ bool Quadtree_remove_node(Node *node) {
                 return false;
 
             // if all goes well, we can relink
-            node->parent->children[get_quadrant(parent->center, node->center)] = child;
+            node->parent->children[get_quadrant(node->parent->center, node->center)] = child;
             child->parent = node->parent;
             node->parent = NULL;
         }
@@ -264,27 +270,24 @@ bool Quadtree_remove_node(Node *node) {
     }
 
     // now, get rid of pointers from the parent
-    Node *parent = node->parent;
+    Node *parent = node->parent, *up = node->up, *down = node->down;
     if (parent != NULL)
         parent->children[get_quadrant(parent->center, node->center)] = NULL;
 
     // next, unlink pointers from up and down
     if (node->up != NULL) {
         node->up->down = NULL;
-        Quadtree_remove_node(node->up);
         node->up = NULL;
     }
     if (node->down != NULL) {
         node->down->up = NULL;
-        Quadtree_remove_node(node->down);
         node->down = NULL;
     }
 
     // now, we can get rid of our node
-    free(node-center);
-    free(node);
+    Node_free(node);
 
-    // finally, recurse up the parent as necessary
+    // then, recurse up the parent as necessary
     if (parent != NULL) {
         register uint8_t num_children = 0, i;
         for (i = 0; i < 4; i++)
@@ -292,6 +295,12 @@ bool Quadtree_remove_node(Node *node) {
         if (num_children < 2)
             Quadtree_remove_node(parent);
     }
+
+    // finally, recurse on up and down
+    if (up != NULL)
+        Quadtree_remove_node(up);
+    if (down != NULL)
+        Quadtree_remove_node(down);
 
     return true;
 }
@@ -308,10 +317,10 @@ bool Quadtree_remove_node(Node *node) {
  * Returns true if the node was successfully removed, false if not.
  */
 bool Quadtree_remove_helper(Node *node, Point *p) {
-   if (!in_range(node, p))
+    if (!in_range(node, p))
         return false;
 
-    register uint8_t quadrant = get_quadrant(node, p);
+    register uint8_t quadrant = get_quadrant(node->center, p);
 
     // if the target child is NULL, we try to drop down a level
     if (node->children[quadrant] == NULL) {
@@ -324,17 +333,17 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
 
     // here, the child exists
 
-    // if is a square, move to it and recurse
-    if (node->children[quadrant]->is_square)
-        return Quadtree_search_helper(node->children[quadrant], p);
+    // if is a square, move to it and recurse if in range
+    if (node->children[quadrant]->is_square && in_range(node->children[quadrant], p))
+        return Quadtree_remove_helper(node->children[quadrant], p);
 
     // otherwise, we check if the child point matches, since it's a point node
     if (Point_equals(node->children[quadrant]->center, p))
-        return Quadtree_remove(node(node->children[quadrant]));
+        return Quadtree_remove_node(node->children[quadrant]);
 
     // if we're here, then we need to branch down a level
     if (node->down != NULL)
-        return Quadtree_search_helper(node->down, p);
+        return Quadtree_remove_helper(node->down, p);
 
     // here, we have nowhere else to search for, so we give up
     return false;
@@ -376,14 +385,13 @@ bool Quadtree_free_helper(Node *node, QuadtreeFreeResult *result) {
     if (node->up != NULL)
         node->up->down = NULL;
     if (node->down != NULL)
-        node->down->down = NULL;
+        node->down->up = NULL;
 
     result->total++;
     result->leaf += !node->is_square;
 
     // should no longer have references
-    free(node->center);
-    free(node);
+    Node_free(node);
 
     return success;
 }
