@@ -30,6 +30,10 @@ test-%: run correctness and performance tests on variant %\n\
 test-%-correctness: run correctness tests on variant %\n\
 test-%-performance: run performance tests on variant %\n\
 benchmark-%: run benchmarks on variant %\n\
+benchmark-%-O0: run benchmarks on variant % with -O0\n\
+benchmark-%-O1: run benchmarks on variant % with -O1\n\
+benchmark-%-O2: run benchmarks on variant % with -O2\n\
+benchmark-%-O3: run benchmarks on variant % with -O3\n\
 main-%: compile main program on variant %\n\
 \n\
 Variants:\n\
@@ -39,7 +43,10 @@ naive: the naive, simple implementation\n\
 
 # for no NUMA
 ifdef NONUM
+ifndef NUMA_CPU
 NONUMA := numactl --cpunodebind=0
+else
+NONUMA := numactl --cpunodebind=$(NUMA_CPU)
 endif
 
 # for sanitize
@@ -51,7 +58,7 @@ endif
 
 # for OFLAG in benchmarking
 ifndef OFLAG
-OFLAG := -O3
+OFLAG := O3
 endif
 
 .PHONY: main-%
@@ -79,28 +86,32 @@ test-%:
 
 .PHONY: benchmark-%-O0
 benchmark-%-O0:
-	$(MAKE) -e benchmark-$* OFLAG="-O0"
+	$(MAKE) -e benchmark-$* OFLAG="O0"
 
 .PHONY: benchmark-%-O1
 benchmark-%-O1:
-	$(MAKE) -e benchmark-$* OFLAG="-O1"
+	$(MAKE) -e benchmark-$* OFLAG="O1"
 
 .PHONY: benchmark-%-O2
 benchmark-%-O2:
-	$(MAKE) -e benchmark-$* OFLAG="-O0"
+	$(MAKE) -e benchmark-$* OFLAG="O0"
 
 .PHONY: benchmark-%-O3
 benchmark-%-O3:
-	$(MAKE) -e benchmark-$* OFLAG="-O3"
+	$(MAKE) -e benchmark-$* OFLAG="O3"
 
 .PHONY: benchmark-%
 benchmark-%: PRERUN += mkdir -p benchmark;
-benchmark-%: POSTRUN += > test-perf/test-perf-$(NOW).txt
-benchmark-%: CFLAGS += $(OFLAG)
+benchmark-%: POSTRUN += > test-perf/results/test-$(OFLAG)-$(NOW).txt
+benchmark-%: CFLAGS += -$(OFLAG)
 benchmark-%:
-	mkdir -p test-perf
-	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)"
-	cat test-perf/test-perf-$(NOW).txt >> test-perf/test-perf.txt
+	mkdir -p test-perf/bin test-perf/results
+	$(MAKE) -e run-benchmark-test_perf OBJS="$(OBJS_$*)" OFLAG="$(OFLAG)"
+
+.PHONY: run-benchmark-%
+run-benchmark-%: $(OBJS) compile-% %.o
+	mv $* test-perf/bin/test-$(OFLAG)-$(NOW)
+	$(PRERUN) $(NONUMA) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN)
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
