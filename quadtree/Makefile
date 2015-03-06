@@ -42,12 +42,8 @@ naive: the naive, simple implementation\n\
 "
 
 # for no NUMA
-ifdef NONUM
-ifndef NUMA_CPU
-NONUMA := numactl --cpunodebind=0
-else
-NONUMA := numactl --cpunodebind=$(NUMA_CPU)
-endif
+ifdef NONUMA
+NUMACTL := numactl --cpunodebind=$(CPU_NODE)
 endif
 
 # for sanitize
@@ -107,16 +103,16 @@ benchmark-%: POSTRUN += > test-perf/results/test-$(OFLAG)-$(NOW).txt
 benchmark-%: CFLAGS += -$(OFLAG)
 benchmark-%:
 	mkdir -p test-perf/bin test-perf/results
-	$(MAKE) -e run-benchmark-test_perf OBJS="$(OBJS_$*)" OFLAG="$(OFLAG)"
+	$(MAKE) -e run-benchmark-test_perf OBJS="$(OBJS_$*)"
 
 .PHONY: run-benchmark-%
 run-benchmark-%: $(OBJS) compile-% %.o
 	mv $* test-perf/bin/test-$(OFLAG)-$(NOW)
-	$(PRERUN) $(NONUMA) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN)
+	$(PRERUN) $(NUMACTL) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN)
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
-	$(PRERUN) $(NONUMA) ./$* $(POSTRUN)
+	$(PRERUN) $(NUMACTL) ./$* $(POSTRUN)
 
 .PHONY: compile-%
 compile-%: %.o
@@ -127,4 +123,4 @@ compile-%: %.o
 
 .PHONY: clean
 clean:
-	-$(RM) $(OBJS) main.o test.o
+	-$(RM) $(OBJS) main.o test.o *.o
