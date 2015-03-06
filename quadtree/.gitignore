@@ -2,3 +2,4 @@ quadtree
 test
 test_perf
 *.out.*
+*.o
