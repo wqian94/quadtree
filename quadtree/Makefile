@@ -48,6 +48,7 @@ NONUMA := numactl --cpunodebind=0
 else
 NONUMA := numactl --cpunodebind=$(NUMA_CPU)
 endif
+endif
 
 # for sanitize
 ifdef SANITIZE_ADDRESS

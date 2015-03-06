@@ -1,5 +1,6 @@
 quadtree
 test
 test_perf
+test-perf
 *.out.*
 *.o
