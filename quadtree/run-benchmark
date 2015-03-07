@@ -2,6 +2,6 @@
 
 for k in {0..3}
 do
-    make -B benchmark-naive-O$k CPU_NODE=$k NONUMA=1 TRIALS=5 & disown
+    make -B benchmark-naive-O$k CPU_NODE=$k NONUMA=1 TRIALS=3 & disown
     sleep 1
 done
