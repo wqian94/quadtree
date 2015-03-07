@@ -80,7 +80,7 @@ void print_Quadtree(Quadtree *root) {
 }
 
 void test_random_n(const uint64_t num_samples) {
-    Marsaglia_srand(num_samples % ((1L << 32) - 1));
+    Marsaglia_srand(num_samples % ((1LL << 32) - 1));
     char buffer[1000];
     float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
     Point p1 = Point_init(0, 0);
@@ -164,29 +164,24 @@ void test_random_n(const uint64_t num_samples) {
     #endif
 }
 
-void test_random_2_10() {
-    test_random_n(1L << 10);
-}
-
-void test_random_2_15() {
-    test_random_n(1L << 15);
-}
-
-void test_random_2_20() {
-    test_random_n(1L << 20);
-}
-
-void test_random_2_25() {
-    test_random_n(1L << 25);
-}
-
-void test_random_2_26() {
-    test_random_n(1L << 26);
-}
-
-void test_random_2_27() {
-    test_random_n(1L << 27);
-}
+void test_random_2_10() {test_random_n(1LL << 10);}
+void test_random_2_11() {test_random_n(1LL << 11);}
+void test_random_2_12() {test_random_n(1LL << 12);}
+void test_random_2_13() {test_random_n(1LL << 13);}
+void test_random_2_14() {test_random_n(1LL << 14);}
+void test_random_2_15() {test_random_n(1LL << 15);}
+void test_random_2_16() {test_random_n(1LL << 16);}
+void test_random_2_17() {test_random_n(1LL << 17);}
+void test_random_2_18() {test_random_n(1LL << 18);}
+void test_random_2_19() {test_random_n(1LL << 19);}
+void test_random_2_20() {test_random_n(1LL << 20);}
+void test_random_2_21() {test_random_n(1LL << 21);}
+void test_random_2_22() {test_random_n(1LL << 22);}
+void test_random_2_23() {test_random_n(1LL << 23);}
+void test_random_2_24() {test_random_n(1LL << 24);}
+void test_random_2_25() {test_random_n(1LL << 25);}
+void test_random_2_26() {test_random_n(1LL << 26);}
+void test_random_2_27() {test_random_n(1LL << 27);}
 
 int main(int argc, char* argv[]) {
     setbuf(stdout, 0);
@@ -211,8 +206,20 @@ int main(int argc, char* argv[]) {
     printf("================== | ========================\n");*/
     #else
     test_random_2_10();
+    test_random_2_11();
+    test_random_2_12();
+    test_random_2_13();
+    test_random_2_14();
     test_random_2_15();
+    test_random_2_16();
+    test_random_2_17();
+    test_random_2_18();
+    test_random_2_19();
     test_random_2_20();
+    test_random_2_21();
+    test_random_2_22();
+    test_random_2_23();
+    test_random_2_24();
     test_random_2_25();
     test_random_2_26();
     test_random_2_27();
