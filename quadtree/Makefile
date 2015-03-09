@@ -107,10 +107,10 @@ benchmark-%:
 	$(MAKE) -e run-benchmark-test_perf OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -$(OFLAG)"
 
 .PHONY: run-benchmark-%
-run-benchmark-%: POSTRUN := > test-perf/results/test-$(OFLAG)-$(NOW)
+run-benchmark-%: POSTRUN := >> test-perf/results/test-$(OFLAG)-$(NOW).txt
 run-benchmark-%: $(OBJS) compile-% %.o
 	mv $* test-perf/bin/test-$(OFLAG)-$(NOW)
-	for i in {1..$(TRIALS)};do $(PRERUN) $(NUMACTL) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN)-$$i.txt;done
+	for i in {1..$(TRIALS)};do $(PRERUN) $(NUMACTL) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);done
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
