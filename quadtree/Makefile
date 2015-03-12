@@ -67,18 +67,16 @@ main-%:
 	$(MAKE) -e run-main
 
 .PHONY: test-%-correctness
-test-%-correctness: CFLAGS += -DDEBUG -O0
 test-%-correctness: TESTFLAG += -DQUADTREE_TEST
 test-%-correctness: PRERUN += export MALLOC_TRACE=mtrace/mtrace.$(NOW);
 test-%-correctness:
-	$(MAKE) -e run-test OBJS="$(OBJS_$*)"
+	$(MAKE) -e run-test OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -DDEBUG -O0"
 	mtrace mtrace/mtrace.$(NOW)
 
 .PHONY: test-%-performance
-test-%-performance: CFLAGS += -O3
 test-%-performance: TESTFLAG += -DVERBOSE
 test-%-performance:
-	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)"
+	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -O3"
 
 .PHONY: test-%
 test-%:
