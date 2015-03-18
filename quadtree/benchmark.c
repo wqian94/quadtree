@@ -1,5 +1,5 @@
 /**
-Testing suite for performance of Quadtrees
+Benchmarking suite for insertion/deletion/querying data structures
 */
 
 #include "test.h"
@@ -189,8 +189,8 @@ int main(int argc, char* argv[]) {
     #ifdef VERBOSE
     printf("[Beginning tests]\n");
     
-    //start_test(test_random_2_10, "Random 2^10 test");
-    //start_test(test_random_2_15, "Random 2^15 test");
+    start_test(test_random_2_10, "Random 2^10 test");
+    start_test(test_random_2_15, "Random 2^15 test");
     start_test(test_random_2_20, "Random 2^20 test");
     //start_test(test_random_2_25, "Random 2^25 test");
     //start_test(test_random_2_26, "Random 2^26 test");

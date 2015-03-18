@@ -160,10 +160,15 @@ QuadtreeFreeResult Quadtree_free(Quadtree *root);
  * Returns whether p is within the boundaries of n.
  */
 static inline bool in_range(Node *n, Point *p) {
-    return n->center->x - n->length / 2 <= p->x &&
+    /*return n->center->x - n->length / 2 <= p->x &&
         n->center->x + n->length / 2 > p->x &&
         n->center->y - n->length / 2 <= p->y &&
-        n->center->y + n->length / 2 > p->y;
+        n->center->y + n->length / 2 > p->y;*/
+    return
+        (n->center->x - n->length * 0.5 <= p->x) &&
+        (n->center->x + n->length * 0.5 > p->x) &&
+        (n->center->y - n->length * 0.5 <= p->y) &&
+        (n->center->y + n->length * 0.5 > p->y);
 }
 
 /*
@@ -193,8 +198,10 @@ static inline int8_t get_quadrant(Point *origin, Point *p) {
  */
 static inline Point get_new_center(Node *node, int8_t quadrant) {
     return (Point){
-        .x = node->center->x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
-        .y = node->center->y + ((quadrant / 2) - 0.5) * 0.5 * node->length
+        /*.x = node->center->x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
+        .y = node->center->y + ((quadrant * 0.5) - 0.5) * 0.5 * node->length*/
+        .x = node->center->x + ((quadrant & 1) - 0.5) * 0.5 * node->length,
+        .y = node->center->y + ((quadrant & 2) - 1) * 0.25 * node->length
         };
 }
 

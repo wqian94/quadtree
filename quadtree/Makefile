@@ -74,9 +74,10 @@ test-%-correctness:
 	mtrace mtrace/mtrace.$(NOW)
 
 .PHONY: test-%-performance
+test-%-performance: CFLAGS += -O0 -pg
 test-%-performance: TESTFLAG += -DVERBOSE
 test-%-performance:
-	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -O3"
+	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS)"
 
 .PHONY: test-%
 test-%:
@@ -101,14 +102,14 @@ benchmark-%-O3:
 
 .PHONY: benchmark-%
 benchmark-%:
-	mkdir -p test-perf/bin test-perf/results
-	$(MAKE) -e run-benchmark-test_perf OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -$(OFLAG)"
+	mkdir -p benchmarks/bin benchmarks/results
+	$(MAKE) -e run-benchmark-benchmark OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -$(OFLAG)"
 
 .PHONY: run-benchmark-%
-run-benchmark-%: POSTRUN := >> test-perf/results/test-$(OFLAG)-$(NOW).txt
+run-benchmark-%: POSTRUN := >> benchmarks/results/test-$(OFLAG)-$(NOW).txt
 run-benchmark-%: $(OBJS) compile-% %.o
-	mv $* test-perf/bin/test-$(OFLAG)-$(NOW)
-	for i in {1..$(TRIALS)};do $(PRERUN) $(NUMACTL) test-perf/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);done
+	mv $* benchmarks/bin/test-$(OFLAG)-$(NOW)
+	for i in {1..$(TRIALS)};do $(PRERUN) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);done
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
