@@ -4,3 +4,4 @@ test_perf
 test-perf
 *.out.*
 *.o
+perf
