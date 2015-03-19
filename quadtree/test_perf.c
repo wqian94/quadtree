@@ -89,7 +89,7 @@ void test_random_n(const uint64_t num_samples) {
 
     test_rand_off();
 
-    float64_t time_samples[num_samples];
+    float64_t* time_samples = (float64_t*)malloc(sizeof(float64_t) * num_samples);
     uint64_t total_cycles = 0;
 
     // inserting everything
@@ -162,6 +162,9 @@ void test_random_n(const uint64_t num_samples) {
     #else
     Quadtree_free(q1);
     #endif
+
+    free(points);
+    free(time_samples);
 }
 
 void test_random_2_10() {test_random_n(1LL << 10);}

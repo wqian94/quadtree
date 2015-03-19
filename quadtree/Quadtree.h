@@ -182,7 +182,8 @@ static inline bool in_range(Node *n, Point *p) {
  * Returns the quadrant that p is in, relative to origin.
  */
 static inline int8_t get_quadrant(Point *origin, Point *p) {
-    return (p->x >= origin->x) + 2 * (p->y >= origin->y);
+    //return (p->x >= origin->x) + 2 * (p->y >= origin->y);
+    return (p->x >= origin->x) | ((p->y >= origin->y) << 1);
 }
 
 /*
