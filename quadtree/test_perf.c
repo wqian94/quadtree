@@ -193,8 +193,9 @@ int main(int argc, char* argv[]) {
     printf("[Beginning tests]\n");
     
     //start_test(test_random_2_10, "Random 2^10 test");
+    start_test(test_random_2_14, "Random 2^14 test");
     //start_test(test_random_2_15, "Random 2^15 test");
-    start_test(test_random_2_20, "Random 2^20 test");
+    //start_test(test_random_2_20, "Random 2^20 test");
     //start_test(test_random_2_25, "Random 2^25 test");
     //start_test(test_random_2_26, "Random 2^26 test");
     //start_test(test_random_2_27, "Random 2^27 test");
