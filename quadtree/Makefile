@@ -21,6 +21,7 @@ TEST_HEADERS := \
 
 OBJS_naive := naive/Point.o naive/Quadtree.o
 OBJS_serial := serial/Point.o serial/Quadtree.o
+OBJS_parallel := parallel/Point.o parallel/Quadtree.o
 
 .PHONY: all
 all:

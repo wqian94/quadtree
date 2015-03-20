@@ -129,10 +129,11 @@ bool Quadtree_search(Quadtree *node, Point p) {
  *
  * node - the node to start inserting at; should be a square
  * p - the point to add
+ * gap_depth - the number of levels we need to go through before actually inserting nodes
  *
  * Returns the corresponding node, one level lower, or NULL if the action failed.
  */
-Node* Quadtree_add_helper(Node *node, Point *p) {
+Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     if (!in_range(node, p))
         return NULL;
 
@@ -144,14 +145,19 @@ Node* Quadtree_add_helper(Node *node, Point *p) {
     } while(node != NULL && node->is_square && in_range(node, p));
 
     // check for duplication
-    if (node != NULL && !node->is_square && Point_equals(node->center, p))
+    if (!gap_depth && node != NULL && !node->is_square && Point_equals(node->center, p))
         return NULL;
 
     // branch down a level if possible
     Node *down_node = NULL;
     if (parent->down != NULL)
-        if ((down_node = Quadtree_add_helper(parent->down, p)) == NULL)
+        if ((down_node = Quadtree_add_helper(parent->down, p,
+                (gap_depth > 0) && (gap_depth - 1))) == NULL)
             return NULL;
+
+    // if gap_depth is not zero, we shouldn't actually add anything
+    if (gap_depth)
+        return down_node;
 
     Node *new_node = Node_init(0.5 * parent->length, *p);
     new_node->parent = parent;
@@ -218,8 +224,15 @@ bool Quadtree_add(Quadtree *node, Point p) {
         }
         node = node->up;
     }
+    
+    register uint64_t gap_depth = 0;  // number of layers to ignore when inserting
 
-    return Quadtree_add_helper(node, &p) != NULL;
+    while (node->up != NULL) {
+        gap_depth++;
+        node = node->up;
+    }
+
+    return Quadtree_add_helper(node, &p, gap_depth) != NULL;
 }
 
 /*
