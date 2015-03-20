@@ -164,11 +164,12 @@ static inline bool in_range(Node *n, Point *p) {
         n->center->x + n->length / 2 > p->x &&
         n->center->y - n->length / 2 <= p->y &&
         n->center->y + n->length / 2 > p->y;*/
+    register float64_t bound = n->length * 0.5;
     return
-        (n->center->x - n->length * 0.5 <= p->x) &&
-        (n->center->x + n->length * 0.5 > p->x) &&
-        (n->center->y - n->length * 0.5 <= p->y) &&
-        (n->center->y + n->length * 0.5 > p->y);
+        (n->center->x - bound <= p->x) &&
+        (n->center->x + bound > p->x) &&
+        (n->center->y - bound <= p->y) &&
+        (n->center->y + bound > p->y);
 }
 
 /*
