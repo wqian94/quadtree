@@ -5,3 +5,5 @@ test-perf
 *.out.*
 *.o
 perf
+gmon.out
+perf.data*

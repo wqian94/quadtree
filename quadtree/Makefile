@@ -114,7 +114,7 @@ run-benchmark-%: $(OBJS) compile-% %.o
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
-	$(PRERUN) $(NUMACTL) ./$* $(POSTRUN)
+	#$(PRERUN) $(NUMACTL) ./$* $(POSTRUN)
 
 .PHONY: compile-%
 compile-%: %.o
