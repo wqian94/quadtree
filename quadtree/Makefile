@@ -22,6 +22,11 @@ OBJS_naive := naive/Point.o naive/Quadtree.o
 OBJS_serial := serial/Point.o serial/Quadtree.o
 OBJS_parallel := parallel/Point.o parallel/Quadtree.o
 
+# to turn on compiling in parallel
+ifdef PARALLEL
+CCFLAGS += -DPARALLEL
+endif
+
 # for no NUMA
 ifdef NONUMA
 NUMACTL := numactl --cpunodebind=$(CPU_NODE)
@@ -48,6 +53,11 @@ endif
 # for debug
 ifdef DEBUG
 CCFLAGS += -DDEBUG
+endif
+
+# for pthreads
+ifdef PTHREAD
+CCFLAGS += -pthread -lpthread
 endif
 
 # for OFLAG in benchmarking

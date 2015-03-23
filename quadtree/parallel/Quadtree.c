@@ -1,5 +1,5 @@
 /**
-Naive serial implementation of compressed skip quadtree
+Naive parallel implementation of compressed skip quadtree with pthreads
 */
 
 #include <assert.h>
@@ -63,6 +63,37 @@ static inline void Node_free(Node *node) {
 }
 
 /*
+ * struct Quadtree_pthread_meta_t
+ *
+ * Stores metadata for pthread executions.
+ *
+ * node - a reference to the Quadtree node
+ * p - a reference to the Point to search for
+ * ret - a reference to where the return value should be written
+ * func - a reference to the function to execute
+ */
+typedef struct Quadtree_pthread_meta_t {
+    Quadtree *node;
+    Point *p;
+    bool *ret;
+    bool (*func)();
+} Quadtree_pthread_meta;
+
+/*
+ * Quadtree_pthread_execute
+ *
+ * Executes the given function on a new pthread.
+ *
+ * data - the metadata reference
+ */
+void* Quadtree_pthread_execute(void *data) {
+    Quadtree_pthread_meta metadata = (Quadtree_pthread_meta)data;
+    bool ret_val = metadata.func(metadata.node, metadata.p);
+    if (metadata.ret != NULL)
+        *metadata.ret = ret_val;
+}
+
+/*
  * Quadtree_search_helper
  *
  * Recursive helper function to traverse the tree horizontally before dropping levels.
@@ -107,14 +138,36 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     return false;
 }
 
-bool Quadtree_search(Quadtree *node, Point p) {
+/*
+ * Quadtree_search_driver
+ *
+ * What actually runs the search function. This abstraction allows for both serial and
+ * parallel call methods.
+ *
+ * node - the root of the tree to start searching at
+ * p - the point of interest
+ *
+ * Returns whether the point is in the tree.
+ */
+bool Quadtree_search_driver(Quadtree *node, Point *p) {
     if (node == NULL)
         return false;
 
     while (node->up != NULL)
         node = node->up;
 
-    return Quadtree_search_helper(node, &p);
+    return Quadtree_search_helper(node, p);
+}
+
+bool Quadtree_search(Quadtree *node, Point p) {
+    return Quadtree_search_driver(node, &p);
+}
+
+int Quadtree_parallel_search(pthread_t *pthread, pthread_attr_t *pthread_attr,
+        Quadtree *node, Point p, bool *ret) {
+    Quadtree_pthread_meta data = {.node = node, .p = &p, .ret = ret,
+        .func = Quadtree_search_driver};
+    return pthread_create(pthread, pthread_attr, Quadtree_pthread_execute, (void*)data);
 }
 
 /*
@@ -216,7 +269,18 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     return new_node;
 }
 
-bool Quadtree_add(Quadtree *node, Point p) {
+/*
+ * Quadtree_add_driver
+ *
+ * What actually runs the add function. This abstraction allows for both serial and
+ * parallel call methods.
+ *
+ * node - the root of the tree to add to
+ * p - the point to add
+ *
+ * Returns whether the add is successful.
+ */
+bool Quadtree_add_driver(Quadtree *node, Point p) {
     while (rand() % 100 < 50) {
         if (node->up == NULL) {
             node->up = Quadtree_init(node->length, *node->center);
@@ -233,6 +297,17 @@ bool Quadtree_add(Quadtree *node, Point p) {
     }
 
     return Quadtree_add_helper(node, &p, gap_depth) != NULL;
+}
+
+bool Quadtree_add(Quadtree *node, Point p) {
+    return Quadtree_add_driver(node, &p);
+}
+
+int Quadtree_parallel_add(pthread_t *pthread, pthread_attr_t *pthread_attr,
+        Quadtree *node, Point p, bool *ret) {
+    Quadtree_pthread_meta data = {.node = node, .p = &p, .ret = ret,
+        .func = Quadtree_add_driver};
+    return pthread_create(pthread, pthread_attr, Quadtree_pthread_execute, (void*)data);
 }
 
 /*
@@ -363,11 +438,33 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
  
 }
 
-bool Quadtree_remove(Quadtree *node, Point p) {
+/*
+ * Quadtree_remove_driver
+ *
+ * What actually runs the remove function. This abstraction allows for both serial and
+ * parallel call methods.
+ *
+ * node - the root of the tree to remove from
+ * p - the point to remove
+ *
+ * Returns whether the remove is successful.
+ */
+bool Quadtree_remove_driver(Quadtree *node, Point p) {
     while (node->up != NULL)
         node = node->up;
 
     return Quadtree_remove_helper(node, &p);
+}
+
+bool Quadtree_remove(Quadtree *node, Point p) {
+    return Quadtree_remove_driver(node, &p);
+}
+
+int Quadtree_parallel_remove(pthread_t *pthread, pthread_attr_t *pthread_attr,
+        Quadtree *node, Point p, bool *ret) {
+    Quadtree_pthread_meta data = {.node = node, .p = &p, .ret = ret,
+        .func = Quadtree_remove_driver};
+    return pthread_create(pthread, pthread_attr, Quadtree_pthread_execute, (void*)data);
 }
 
 /*

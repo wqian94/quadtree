@@ -5,12 +5,14 @@ Interface for Quadtree data structure
 #ifndef QUADTREE_H
 #define QUADTREE_H
 
+#include <pthread.h>
 #include <stdio.h>
 
 #include "./util.h"
 #include "./types.h"
 #include "./Point.h"
 
+#ifndef PARALLEL
 typedef struct SerialSkipQuadtreeNode_t Node;
 
 /*
@@ -40,10 +42,103 @@ struct SerialSkipQuadtreeNode_t {
     uint64_t id;
 #endif
 };
+#else
+typedef struct ParallelSkipQuadtreeNode_t Node;
 
 /*
-typedef struct ParallelSkipQuadtreeNode_t Node;
-*/
+ * struct ParallelSkipQuadtreeNode_t
+ *
+ * Stores information about a node in the quadtree, for parallel implementations
+ *
+ * is_square - true if node is a square, false if is a point
+ * center - center of the square, or coordinates of the point
+ * length - side length of the square. This means that the boundaries are
+ *     length/2 distance from the center-> Does not matter for a point
+ * parent - the parent node in the same level; NULL if a root node
+ * up - the clone of the same node in the next level, if it exists
+ * down - the clone of the same node in the previous level; NULL if at lowest level
+ * children - the four children of the square; each entry is NULL if there is no child
+ *     there. Each index refers to a quadrant, such that children[0] is Q1, [1] is Q2,
+ *     and so on. Should never be all NULL unless node is a point
+ */
+struct ParallelSkipQuadtreeNode_t {
+    bool is_square;
+    Point *center;
+    float64_t length;
+    Node *parent;
+    Node *up, *down;
+    Node *children[4];
+#ifdef QUADTREE_TEST
+    uint64_t id;
+#endif
+};
+
+/*
+ * Quadtree_parallel_search
+ *
+ * Alternate entry point for the search function that takes care of calling
+ * pthread_create, message passing between the parent and the child threads, and storing
+ * the results of the search query into a buffer.
+ *
+ * Can be called in a fashion similar to pthread_create, except that the function and
+ * parameter arguments have been replaced with 2 parameters arguments and 1 result buffer
+ * argument.
+ *
+ * pthread - a pthread_t reference
+ * pthread_attr - a pthread_attr_t reference
+ * node - the root of the tree to start searching at
+ * p - the point to search for
+ * ret - the result buffer to store the search result
+ *
+ * Returns the return value of pthread_create.
+ */
+int Quadtree_parallel_search(pthread_t *pthread, pthread_attr_t *pthread_attr,
+        Quadtree *node, Point p, bool *ret);
+
+/*
+ * Quadtree_parallel_add
+ *
+ * Alternate entry point for the add function that takes care of calling
+ * pthread_create, message passing between the parent and the child threads, and storing
+ * the results of the add query into a buffer.
+ *
+ * Can be called in a fashion similar to pthread_create, except that the function and
+ * parameter arguments have been replaced with 2 parameters arguments and 1 result buffer
+ * argument.
+ *
+ * pthread - a pthread_t reference
+ * pthread_attr - a pthread_attr_t reference
+ * node - the root of the tree to add to
+ * p - the point to add
+ * ret - the result buffer to store the add result
+ *
+ * Returns the return value of pthread_create.
+ */
+int Quadtree_parallel_add(pthread_t *pthread, pthread_attr_t *pthread_attr,
+        Quadtree *node, Point p, bool *ret);
+
+/*
+ * Quadtree_parallel_remove
+ *
+ * Alternate entry point for the remove function that takes care of calling
+ * pthread_create, message passing between the parent and the child threads, and storing
+ * the results of the remove query into a buffer.
+ *
+ * Can be called in a fashion similar to pthread_create, except that the function and
+ * parameter arguments have been replaced with 2 parameters arguments and 1 result buffer
+ * argument.
+ *
+ * pthread - a pthread_t reference
+ * pthread_attr - a pthread_attr_t reference
+ * node - the root of the tree to remove from
+ * p - the point to remove
+ * ret - the result buffer to store the remove result
+ *
+ * Returns the return value of pthread_create.
+ */
+int Quadtree_parallel_remove(pthread_t *pthread, pthread_attr_t *pthread_attr,
+        Quadtree *node, Point p, bool *ret);
+#endif
 
 typedef Node Quadtree;
 
