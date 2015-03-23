@@ -188,6 +188,7 @@ void test_random_2_27() {test_random_n(1LL << 27);}
 
 int main(int argc, char* argv[]) {
     setbuf(stdout, 0);
+    mtrace();
     Marsaglia_srand(0);
     #ifdef VERBOSE
     printf("[Beginning tests]\n");

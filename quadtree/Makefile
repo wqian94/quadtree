@@ -6,7 +6,6 @@ CC := gcc
 CFLAGS := -std=c99 -g
 RM := rm -f
 CPU_NODE := 0
-
 NOW := $(shell date -u +%s)
 
 HEADERS := \
@@ -22,6 +21,40 @@ TEST_HEADERS := \
 OBJS_naive := naive/Point.o naive/Quadtree.o
 OBJS_serial := serial/Point.o serial/Quadtree.o
 OBJS_parallel := parallel/Point.o parallel/Quadtree.o
+
+# for no NUMA
+ifdef NONUMA
+NUMACTL := numactl --cpunodebind=$(CPU_NODE)
+endif
+
+# for sanitize
+ifdef SANITIZE_ADDRESS
+CC := clang
+CFLAGS += -fsanitize=address
+PRERUN += export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer;
+endif
+
+# for mtrace
+ifdef MTRACE
+PRERUN += export MALLOC_TRACE=mtrace/mtrace.$(NOW);
+POSTRUN += ;mtrace mtrace/mtrace.$(NOW);
+endif
+
+# for gprof
+ifdef GPROF
+CCFLAGS += -pg
+endif
+
+# for debug
+ifdef DEBUG
+CCFLAGS += -DDEBUG
+endif
+
+# for OFLAG in benchmarking
+OFLAG ?= O3
+
+# for trial counts in benchmarking
+TRIALS ?= 1
 
 .PHONY: all
 all:
@@ -45,40 +78,21 @@ Variants:\n\
 naive: the naive, simple implementation\n\
 "
 
-# for no NUMA
-ifdef NONUMA
-NUMACTL := numactl --cpunodebind=$(CPU_NODE)
-endif
-
-# for sanitize
-ifdef SANITIZE_ADDRESS
-CC := clang
-CFLAGS += -fsanitize=address
-PRERUN += export ASAN_SYMBOLIZER_PATH=/usr/bin/llvm-symbolizer;
-endif
-
-# for OFLAG in benchmarking
-OFLAG ?= O3
-
-# for trial counts in benchmarking
-TRIALS ?= 1
-
 .PHONY: main-%
 main-%:
 	$(MAKE) -e run-main
 
 .PHONY: test-%-correctness
+test-%-correctness: CFLAGS += -O0
 test-%-correctness: TESTFLAG += -DQUADTREE_TEST
-test-%-correctness: PRERUN += export MALLOC_TRACE=mtrace/mtrace.$(NOW);
 test-%-correctness:
-	$(MAKE) -e run-test OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -DDEBUG -O0"
-	mtrace mtrace/mtrace.$(NOW)
+	$(MAKE) -e run-test OBJS="$(OBJS_$*)" MTRACE=1 DEBUG=1
 
 .PHONY: test-%-performance
-test-%-performance: CFLAGS += -O0 -pg
+test-%-performance: CFLAGS += -O0
 test-%-performance: TESTFLAG += -DVERBOSE
 test-%-performance:
-	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS)"
+	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)" GPROF=1
 
 .PHONY: test-%
 test-%:
@@ -118,10 +132,10 @@ run-%: $(OBJS) compile-% %.o
 
 .PHONY: compile-%
 compile-%: %.o
-	$(CC) $(CFLAGS) $(OBJS) $*.o -o $*
+	$(CC) $(CFLAGS) $(CCFLAGS) $(OBJS) $*.o -o $*
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@ $(TESTFLAG)
+	$(CC) $(CFLAGS) $(CCFLAGS) -c $< -o $@ $(TESTFLAG)
 
 .PHONY: clean
 clean:
