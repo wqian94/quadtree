@@ -3,7 +3,7 @@ export
 SHELL := /bin/bash
 
 CC := gcc
-CFLAGS := -std=c99 -g
+CFLAGS := -std=gnu99 -g
 RM := rm -f
 CPU_NODE := 0
 NOW := $(shell date -u +%s)

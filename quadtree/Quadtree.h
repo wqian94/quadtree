@@ -68,11 +68,62 @@ struct ParallelSkipQuadtreeNode_t {
     Node *parent;
     Node *up, *down;
     Node *children[4];
+    pthread_rwlock_t lock;
 #ifdef QUADTREE_TEST
     uint64_t id;
 #endif
 };
+#endif
 
+typedef Node Quadtree;
+
+/*
+ * struct QuadtreeFreeResult_t
+ *
+ * Contains information about how many total nodes were freed and how many leaf nodes
+ * were freed during a freeing operation. In addition, also contains information about
+ * how many levels were freed.
+ *
+ * total - the total number of nodes freed, including intermediate nodes
+ * leaf - the number of leaf nodes freed
+ * levels - the number of levels freed
+ */
+typedef struct QuadtreeFreeResult_t {
+    uint64_t total, leaf, levels;
+} QuadtreeFreeResult;
+
+#ifdef QUADTREE_TEST
+/*
+ * Node_init
+ *
+ * Allocates memory for and initializes an empty leaf node in the quadtree.
+ *
+ * length - the "length" of the node -- irrelevant for a leaf node, but necessary
+ *          for an internal node (square)
+ * center - the center of the node
+ *
+ * Returns a pointer to the created node.
+ */
+Node* Node_init(float64_t length, Point center);
+#endif
+
+/*
+ * Quadtree_init
+ *
+ * Allocates memory for and initializes an empty internal node in the quadtree.
+ *
+ * In SerialSkipQuadtree, this is implemented as a wrapper for Node_init, setting
+ * the resultant node's is_square boolean to true before returning it.
+ *
+ * length - the "length" of the node -- irrelevant for a leaf node, but necessary
+ *          for an internal node (square)
+ * center - the center of the node
+ *
+ * Returns a pointer to the created node.
+ */
+Quadtree* Quadtree_init(float64_t length, Point center);
+
+#ifdef PARALLEL
 /*
  * Quadtree_parallel_search
  *
@@ -139,54 +190,6 @@ int Quadtree_parallel_add(pthread_t *pthread, pthread_attr_t *pthread_attr,
 int Quadtree_parallel_remove(pthread_t *pthread, pthread_attr_t *pthread_attr,
         Quadtree *node, Point p, bool *ret);
 #endif
-
-typedef Node Quadtree;
-
-/*
- * struct QuadtreeFreeResult_t
- *
- * Contains information about how many total nodes were freed and how many leaf nodes
- * were freed during a freeing operation. In addition, also contains information about
- * how many levels were freed.
- *
- * total - the total number of nodes freed, including intermediate nodes
- * leaf - the number of leaf nodes freed
- * levels - the number of levels freed
- */
-typedef struct QuadtreeFreeResult_t {
-    uint64_t total, leaf, levels;
-} QuadtreeFreeResult;
-
-#ifdef QUADTREE_TEST
-/*
- * Node_init
- *
- * Allocates memory for and initializes an empty leaf node in the quadtree.
- *
- * length - the "length" of the node -- irrelevant for a leaf node, but necessary
- *          for an internal node (square)
- * center - the center of the node
- *
- * Returns a pointer to the created node.
- */
-Node* Node_init(float64_t length, Point center);
-#endif
-
-/*
- * Quadtree_init
- *
- * Allocates memory for and initializes an empty internal node in the quadtree.
- *
- * In SerialSkipQuadtree, this is implemented as a wrapper for Node_init, setting
- * the resultant node's is_square boolean to true before returning it.
- *
- * length - the "length" of the node -- irrelevant for a leaf node, but necessary
- *          for an internal node (square)
- * center - the center of the node
- *
- * Returns a pointer to the created node.
- */
-Quadtree* Quadtree_init(float64_t length, Point center);
 
 /*
  * Quadtree_search

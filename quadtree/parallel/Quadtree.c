@@ -37,6 +37,7 @@ Node* Node_init(float64_t length, Point center) {
     node->children[1] = NULL;
     node->children[2] = NULL;
     node->children[3] = NULL;
+    pthread_rwlock_init(&node->lock, NULL);
 #ifdef QUADTREE_TEST
     node->id = QUADTREE_NODE_COUNT++;
 #endif
@@ -58,6 +59,7 @@ Quadtree* Quadtree_init(float64_t length, Point center) {
  * node - the node to be freed
  */
 static inline void Node_free(Node *node) {
+    pthread_rwlock_destroy(&node->lock);
     free(node->center);
     free(node);
 }
@@ -68,13 +70,13 @@ static inline void Node_free(Node *node) {
  * Stores metadata for pthread executions.
  *
  * node - a reference to the Quadtree node
- * p - a reference to the Point to search for
+ * p - the Point of interest
  * ret - a reference to where the return value should be written
  * func - a reference to the function to execute
  */
 typedef struct Quadtree_pthread_meta_t {
     Quadtree *node;
-    Point *p;
+    Point p;
     bool *ret;
     bool (*func)();
 } Quadtree_pthread_meta;
@@ -87,10 +89,36 @@ typedef struct Quadtree_pthread_meta_t {
  * data - the metadata reference
  */
 void* Quadtree_pthread_execute(void *data) {
-    Quadtree_pthread_meta metadata = (Quadtree_pthread_meta)data;
-    bool ret_val = metadata.func(metadata.node, metadata.p);
-    if (metadata.ret != NULL)
-        *metadata.ret = ret_val;
+    Quadtree_pthread_meta *metadata = (Quadtree_pthread_meta*)data;
+    bool ret_val = metadata->func(metadata->node, &metadata->p);
+    if (metadata->ret != NULL)
+        *metadata->ret = ret_val;
+    free(metadata);
+    return (void*)ret_val;
+}
+
+/*
+ * Quadtree_pthread_create
+ *
+ * Creates a pthread which will call the target function, func.
+ *
+ * pthread - a pthread_t reference
+ * pthread_attr - a pthread_attr_t reference
+ * node - the root of the tree to start searching at
+ * p - the point to search for
+ * ret - the result buffer to store the search result
+ * func - the target function
+ *
+ * Returns the return value of pthread_create.
+ */
+int Quadtree_pthread_create(pthread_t *pthread, pthread_attr_t *pthread_attr,
+        Quadtree *node, Point p, bool *ret, bool (*func)()) {
+    Quadtree_pthread_meta *data = (Quadtree_pthread_meta*)malloc(sizeof(*data));
+    data->node = node;
+    data->p = p;
+    data->ret = ret;
+    data->func = func;
+    return pthread_create(pthread, pthread_attr, Quadtree_pthread_execute, (void*)data);
 }
 
 /*
@@ -113,28 +141,54 @@ bool Quadtree_search_helper(Node *node, Point *p) {
 
     // if the target child is NULL, we try to drop down a level
     if (node->children[quadrant] == NULL) {
-        if (node->down != NULL)
+        if (node->down != NULL) {
+            #ifdef PARALLEL
+            pthread_rwlock_rdlock(&node->down->lock);
+            pthread_rwlock_unlock(&node->lock);
+            #endif
             return Quadtree_search_helper(node->down, p);
+        }
         // otherwise, we're on the bottom-most level and just can't find the point
-        else
+        else {
+            #ifdef PARALLEL
+            pthread_rwlock_unlock(&node->lock);
+            #endif
             return false;
+        }
     }
 
     // here, the child exists
 
     // if is a square, move to it and recurse
-    if (node->children[quadrant]->is_square)
+    if (node->children[quadrant]->is_square) {
+        #ifdef PARALLEL
+        pthread_rwlock_rdlock(&node->children[quadrant]->lock);
+        pthread_rwlock_unlock(&node->lock);
+        #endif
         return Quadtree_search_helper(node->children[quadrant], p);
+    }
 
     // otherwise, we check if the child point matches, since it's a point node
-    if (Point_equals(node->children[quadrant]->center, p))
+    if (Point_equals(node->children[quadrant]->center, p)) {
+        #ifdef PARALLEL
+        pthread_rwlock_unlock(&node->children[quadrant]->lock);
+        #endif
         return true;
+    }
 
     // if we're here, then we need to branch down a level
-    if (node->down != NULL)
+    if (node->down != NULL) {
+        #ifdef PARALLEL
+        pthread_rwlock_rdlock(&node->down->lock);
+        pthread_rwlock_unlock(&node->lock);
+        #endif
         return Quadtree_search_helper(node->down, p);
+    }
 
     // here, we have nowhere else to search for, so we give up
+    #ifdef PARALLEL
+    pthread_rwlock_unlock(&node->children[quadrant]->lock);
+    #endif
     return false;
 }
 
@@ -153,8 +207,17 @@ bool Quadtree_search_driver(Quadtree *node, Point *p) {
     if (node == NULL)
         return false;
 
-    while (node->up != NULL)
+    #ifdef PARALLEL
+    pthread_rwlock_rdlock(&node->lock);
+    #endif
+
+    while (node->up != NULL) {
+        #ifdef PARALLEL
+        pthread_rwlock_rdlock(&node->up->lock);
+        pthread_rwlock_unlock(&node->up->lock);
+        #endif
         node = node->up;
+    }
 
     return Quadtree_search_helper(node, p);
 }
@@ -165,9 +228,7 @@ bool Quadtree_search(Quadtree *node, Point p) {
 
 int Quadtree_parallel_search(pthread_t *pthread, pthread_attr_t *pthread_attr,
         Quadtree *node, Point p, bool *ret) {
-    Quadtree_pthread_meta data = {.node = node, .p = &p, .ret = ret,
-        .func = Quadtree_search_driver};
-    return pthread_create(pthread, pthread_attr, Quadtree_pthread_execute, (void*)data);
+    return Quadtree_pthread_create(pthread, pthread_attr, node, p, ret, Quadtree_search_driver);
 }
 
 /*
@@ -191,7 +252,7 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
         return NULL;
 
     // horizontal traversal
-    Node *parent, *node_param = node;
+    Node *parent;
     do {
         parent = node;
         node = parent->children[get_quadrant(parent->center, p)];
@@ -280,7 +341,7 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
  *
  * Returns whether the add is successful.
  */
-bool Quadtree_add_driver(Quadtree *node, Point p) {
+bool Quadtree_add_driver(Quadtree *node, Point *p) {
     while (rand() % 100 < 50) {
         if (node->up == NULL) {
             node->up = Quadtree_init(node->length, *node->center);
@@ -296,7 +357,7 @@ bool Quadtree_add_driver(Quadtree *node, Point p) {
         node = node->up;
     }
 
-    return Quadtree_add_helper(node, &p, gap_depth) != NULL;
+    return Quadtree_add_helper(node, p, gap_depth) != NULL;
 }
 
 bool Quadtree_add(Quadtree *node, Point p) {
@@ -305,9 +366,7 @@ bool Quadtree_add(Quadtree *node, Point p) {
 
 int Quadtree_parallel_add(pthread_t *pthread, pthread_attr_t *pthread_attr,
         Quadtree *node, Point p, bool *ret) {
-    Quadtree_pthread_meta data = {.node = node, .p = &p, .ret = ret,
-        .func = Quadtree_add_driver};
-    return pthread_create(pthread, pthread_attr, Quadtree_pthread_execute, (void*)data);
+    return Quadtree_pthread_create(pthread, pthread_attr, node, p, ret, Quadtree_add_driver);
 }
 
 /*
@@ -449,11 +508,11 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
  *
  * Returns whether the remove is successful.
  */
-bool Quadtree_remove_driver(Quadtree *node, Point p) {
+bool Quadtree_remove_driver(Quadtree *node, Point *p) {
     while (node->up != NULL)
         node = node->up;
 
-    return Quadtree_remove_helper(node, &p);
+    return Quadtree_remove_helper(node, p);
 }
 
 bool Quadtree_remove(Quadtree *node, Point p) {
@@ -462,9 +521,7 @@ bool Quadtree_remove(Quadtree *node, Point p) {
 
 int Quadtree_parallel_remove(pthread_t *pthread, pthread_attr_t *pthread_attr,
         Quadtree *node, Point p, bool *ret) {
-    Quadtree_pthread_meta data = {.node = node, .p = &p, .ret = ret,
-        .func = Quadtree_remove_driver};
-    return pthread_create(pthread, pthread_attr, Quadtree_pthread_execute, (void*)data);
+    return Quadtree_pthread_create(pthread, pthread_attr, node, p, ret, Quadtree_remove_driver);
 }
 
 /*

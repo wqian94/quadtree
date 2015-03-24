@@ -20,6 +20,10 @@ Testing suite utilities header
 extern uint32_t Marsaglia_rand();
 #define rand() Marsaglia_rand()
 
+#ifndef NTHREADS
+#define NTHREADS 2
+#endif
+
 typedef struct {
     bool on;
     uint32_t *food;
