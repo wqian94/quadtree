@@ -21,7 +21,7 @@ extern uint32_t Marsaglia_rand();
 #define rand() Marsaglia_rand()
 
 #ifndef NTHREADS
-#define NTHREADS 2
+#define NTHREADS 16
 #endif
 
 typedef struct {
