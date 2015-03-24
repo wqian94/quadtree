@@ -138,7 +138,8 @@ run-benchmark-%: $(OBJS) compile-% %.o
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
-	#$(PRERUN) $(NUMACTL) ./$* $(POSTRUN)
+	@#$(PRERUN) $(NUMACTL) ./$* $(POSTRUN)
+	@printf "run\\n\\t $(PRERUN) $(NUMACTL) ./$* $(POSTRUN)\\n\\n"
 
 .PHONY: compile-%
 compile-%: %.o

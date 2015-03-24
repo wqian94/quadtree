@@ -90,7 +90,7 @@ typedef struct Quadtree_pthread_meta_t {
  */
 void* Quadtree_pthread_execute(void *data) {
     Quadtree_pthread_meta *metadata = (Quadtree_pthread_meta*)data;
-    bool ret_val = metadata->func(metadata->node, &metadata->p);
+    bool ret_val = metadata->func(metadata->node, &metadata->p, true);
     if (metadata->ret != NULL)
         *metadata->ret = ret_val;
     free(metadata);
@@ -112,7 +112,7 @@ void* Quadtree_pthread_execute(void *data) {
  * Returns the return value of pthread_create.
  */
 int Quadtree_pthread_create(pthread_t *pthread, pthread_attr_t *pthread_attr,
-        Quadtree *node, Point p, bool *ret, bool (*func)()) {
+        Quadtree *node, Point p, bool *ret, bool (*func)(Quadtree*, Point*, const bool)) {
     Quadtree_pthread_meta *data = (Quadtree_pthread_meta*)malloc(sizeof(*data));
     data->node = node;
     data->p = p;
@@ -130,10 +130,11 @@ int Quadtree_pthread_create(pthread_t *pthread, pthread_attr_t *pthread_attr,
  *
  * node - the square to look in
  * p - the point to search for
+ * parallel - whether to enable parallel constructs
  *
  * Returns whether p is in node.
  */
-bool Quadtree_search_helper(Node *node, Point *p) {
+bool Quadtree_search_helper(Node *node, Point *p, const bool parallel) {
     if (!in_range(node, p))
         return false;
 
@@ -143,15 +144,19 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     if (node->children[quadrant] == NULL) {
         if (node->down != NULL) {
             #ifdef PARALLEL
-            pthread_rwlock_rdlock(&node->down->lock);
-            pthread_rwlock_unlock(&node->lock);
+            if (parallel) {
+                pthread_rwlock_rdlock(&node->down->lock);
+                pthread_rwlock_unlock(&node->lock);
+            }
             #endif
-            return Quadtree_search_helper(node->down, p);
+            return Quadtree_search_helper(node->down, p, parallel);
         }
         // otherwise, we're on the bottom-most level and just can't find the point
         else {
             #ifdef PARALLEL
-            pthread_rwlock_unlock(&node->lock);
+            if (parallel) {
+                pthread_rwlock_unlock(&node->lock);
+            }
             #endif
             return false;
         }
@@ -162,16 +167,20 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     // if is a square, move to it and recurse
     if (node->children[quadrant]->is_square) {
         #ifdef PARALLEL
-        pthread_rwlock_rdlock(&node->children[quadrant]->lock);
-        pthread_rwlock_unlock(&node->lock);
+        if (parallel) {
+            pthread_rwlock_rdlock(&node->children[quadrant]->lock);
+            pthread_rwlock_unlock(&node->lock);
+        }
         #endif
-        return Quadtree_search_helper(node->children[quadrant], p);
+        return Quadtree_search_helper(node->children[quadrant], p, parallel);
     }
 
     // otherwise, we check if the child point matches, since it's a point node
     if (Point_equals(node->children[quadrant]->center, p)) {
         #ifdef PARALLEL
-        pthread_rwlock_unlock(&node->children[quadrant]->lock);
+        if (parallel) {
+            pthread_rwlock_unlock(&node->children[quadrant]->lock);
+        }
         #endif
         return true;
     }
@@ -179,15 +188,19 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     // if we're here, then we need to branch down a level
     if (node->down != NULL) {
         #ifdef PARALLEL
-        pthread_rwlock_rdlock(&node->down->lock);
-        pthread_rwlock_unlock(&node->lock);
+        if (parallel) {
+            pthread_rwlock_rdlock(&node->down->lock);
+            pthread_rwlock_unlock(&node->lock);
+        }
         #endif
-        return Quadtree_search_helper(node->down, p);
+        return Quadtree_search_helper(node->down, p, parallel);
     }
 
     // here, we have nowhere else to search for, so we give up
     #ifdef PARALLEL
-    pthread_rwlock_unlock(&node->children[quadrant]->lock);
+    if (parallel) {
+        pthread_rwlock_unlock(&node->children[quadrant]->lock);
+    }
     #endif
     return false;
 }
@@ -200,30 +213,35 @@ bool Quadtree_search_helper(Node *node, Point *p) {
  *
  * node - the root of the tree to start searching at
  * p - the point of interest
+ * parallel - whether to enable parallel constructs
  *
  * Returns whether the point is in the tree.
  */
-bool Quadtree_search_driver(Quadtree *node, Point *p) {
+bool Quadtree_search_driver(Quadtree *node, Point *p, const bool parallel) {
     if (node == NULL)
         return false;
 
     #ifdef PARALLEL
-    pthread_rwlock_rdlock(&node->lock);
+    if (parallel) {
+        pthread_rwlock_rdlock(&node->lock);
+    }
     #endif
 
     while (node->up != NULL) {
         #ifdef PARALLEL
-        pthread_rwlock_rdlock(&node->up->lock);
-        pthread_rwlock_unlock(&node->up->lock);
+        if (parallel) {
+            pthread_rwlock_rdlock(&node->up->lock);
+            pthread_rwlock_unlock(&node->up->lock);
+        }
         #endif
         node = node->up;
     }
 
-    return Quadtree_search_helper(node, p);
+    return Quadtree_search_helper(node, p, parallel);
 }
 
 bool Quadtree_search(Quadtree *node, Point p) {
-    return Quadtree_search_driver(node, &p);
+    return Quadtree_search_driver(node, &p, false);
 }
 
 int Quadtree_parallel_search(pthread_t *pthread, pthread_attr_t *pthread_attr,
@@ -244,10 +262,11 @@ int Quadtree_parallel_search(pthread_t *pthread, pthread_attr_t *pthread_attr,
  * node - the node to start inserting at; should be a square
  * p - the point to add
  * gap_depth - the number of levels we need to go through before actually inserting nodes
+ * parallel - whether to enable parallel constructs
  *
  * Returns the corresponding node, one level lower, or NULL if the action failed.
  */
-Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
+Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth, const bool parallel) {
     if (!in_range(node, p))
         return NULL;
 
@@ -266,13 +285,19 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     Node *down_node = NULL;
     if (parent->down != NULL)
         if ((down_node = Quadtree_add_helper(parent->down, p,
-                (gap_depth > 0) && (gap_depth - 1))) == NULL)
+                (gap_depth > 0) && (gap_depth - 1), parallel)) == NULL)
             return NULL;
 
+    // if gap_depth is not zero, we shouldn't actually add anything
     if (gap_depth)
         return down_node;
 
-    // if gap_depth is not zero, we shouldn't actually add anything
+    #ifdef PARALLEL
+    if (parallel) {
+        pthread_rwlock_wrlock(&parent->lock);
+        pthread_rwlock_wrlock(&down_node->lock);
+    }
+    #endif
     Node *new_node = Node_init(0.5 * parent->length, *p);
     new_node->parent = parent;
 
@@ -287,12 +312,19 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     // if the slot is empty, it's trivial
     if (parent->children[quadrant] == NULL) {
         parent->children[quadrant] = new_node;
+        #ifdef PARALLEL
+        if (parallel) {
+            pthread_rwlock_unlock(&parent->lock);
+            pthread_rwlock_unlock(&down_node->lock);
+        }
+        #endif
         return new_node;
     }
     // if it's not empty, that means there's already a node there...
     else {
         // grab the sibling-to-be
         Node *sibling = parent->children[quadrant];
+        pthread_rwlock_wrlock(&sibling->lock);
 
         // create a new square to contain the sibling and the new node
         uint8_t square_quadrant = quadrant;
@@ -318,13 +350,31 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
             while (!Point_equals(down_square->center, square->center) ||
                     abs(down_square->length - square->length) > PRECISION)
                 down_square = down_square->children[get_quadrant(down_square->center, square->center)];
+            #ifdef PARALLEL
+            if (parallel) {
+                pthread_rwlock_wrlock(&down_square->lock);
+            }
+            #endif
             square->down = down_square;
             down_square->up = square;
+            #ifdef PARALLEL
+            if (parallel) {
+                pthread_rwlock_unlock(&down_square->lock);
+            }
+            #endif
         }
 
         square->parent->children[square_quadrant] = square;
         new_node->parent = square;
         sibling->parent = square;
+
+        #ifdef PARALLEL
+        if (parallel) {
+            pthread_rwlock_unlock(&parent->lock);
+            pthread_rwlock_unlock(&down_node->lock);
+            pthread_rwlock_unlock(&sibling->lock);
+        }
+        #endif
     }
 
     return new_node;
@@ -338,14 +388,27 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
  *
  * node - the root of the tree to add to
  * p - the point to add
+ * parallel - whether to enable parallel constructs
  *
  * Returns whether the add is successful.
  */
-bool Quadtree_add_driver(Quadtree *node, Point *p) {
+bool Quadtree_add_driver(Quadtree *node, Point *p, const bool parallel) {
     while (rand() % 100 < 50) {
         if (node->up == NULL) {
-            node->up = Quadtree_init(node->length, *node->center);
-            node->up->down = node;
+            #ifdef PARALLEL
+            if (parallel) {
+                pthread_rwlock_wrlock(&node->lock);
+            }
+            if (node->up == NULL) {
+            #endif
+                node->up = Quadtree_init(node->length, *node->center);
+                node->up->down = node;
+            #ifdef PARALLEL
+            }
+            if (parallel) {
+                pthread_rwlock_unlock(&node->lock);
+            }
+            #endif
         }
         node = node->up;
     }
@@ -357,11 +420,11 @@ bool Quadtree_add_driver(Quadtree *node, Point *p) {
         node = node->up;
     }
 
-    return Quadtree_add_helper(node, p, gap_depth) != NULL;
+    return Quadtree_add_helper(node, p, gap_depth, parallel) != NULL;
 }
 
 bool Quadtree_add(Quadtree *node, Point p) {
-    return Quadtree_add_driver(node, &p);
+    return Quadtree_add_driver(node, &p, false);
 }
 
 int Quadtree_parallel_add(pthread_t *pthread, pthread_attr_t *pthread_attr,
@@ -378,10 +441,11 @@ int Quadtree_parallel_add(pthread_t *pthread, pthread_attr_t *pthread_attr,
  * Invariant: node must have either a parent or a down.
  *
  * node - the node to remove
+ * parallel - whether to enable parallel constructs
  *
  * Returns true if removal is successful, false otherwise.
  */
-bool Quadtree_remove_node(Node *node) {
+bool Quadtree_remove_node(Node *node, const bool parallel) {
     if (node->down == NULL && node->parent == NULL)
         return false;
 
@@ -440,14 +504,14 @@ bool Quadtree_remove_node(Node *node) {
         for (i = 0; i < 4; i++)
             num_children += parent->children[i] != NULL;
         if (num_children < 2)
-            Quadtree_remove_node(parent);
+            Quadtree_remove_node(parent, parallel);
     }
 
     // finally, recurse on up and down
     if (up != NULL)
-        Quadtree_remove_node(up);
+        Quadtree_remove_node(up, parallel);
     if (down != NULL)
-        Quadtree_remove_node(down);
+        Quadtree_remove_node(down, parallel);
 
     return true;
 }
@@ -460,10 +524,11 @@ bool Quadtree_remove_node(Node *node) {
  *
  * node - the node to start at
  * p - the point to remove
+ * parallel - whether to enable parallel constructs
  *
  * Returns true if the node was successfully removed, false if not.
  */
-bool Quadtree_remove_helper(Node *node, Point *p) {
+bool Quadtree_remove_helper(Node *node, Point *p, const bool parallel) {
     if (!in_range(node, p))
         return false;
 
@@ -472,7 +537,7 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
     // if the target child is NULL, we try to drop down a level
     if (node->children[quadrant] == NULL) {
         if (node->down != NULL)
-            return Quadtree_remove_helper(node->down, p);
+            return Quadtree_remove_helper(node->down, p, parallel);
         // otherwise, we're on the bottom-most level and just can't find the point
         else
             return false;
@@ -482,15 +547,15 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
 
     // if is a square, move to it and recurse if in range
     if (node->children[quadrant]->is_square && in_range(node->children[quadrant], p))
-        return Quadtree_remove_helper(node->children[quadrant], p);
+        return Quadtree_remove_helper(node->children[quadrant], p, parallel);
 
     // otherwise, we check if the child point matches, since it's a point node
     if (Point_equals(node->children[quadrant]->center, p))
-        return Quadtree_remove_node(node->children[quadrant]);
+        return Quadtree_remove_node(node->children[quadrant], parallel);
 
     // if we're here, then we need to branch down a level
     if (node->down != NULL)
-        return Quadtree_remove_helper(node->down, p);
+        return Quadtree_remove_helper(node->down, p, parallel);
 
     // here, we have nowhere else to search for, so we give up
     return false;
@@ -505,18 +570,19 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
  *
  * node - the root of the tree to remove from
  * p - the point to remove
+ * parallel - whether to enable parallel constructs
  *
  * Returns whether the remove is successful.
  */
-bool Quadtree_remove_driver(Quadtree *node, Point *p) {
+bool Quadtree_remove_driver(Quadtree *node, Point *p, const bool parallel) {
     while (node->up != NULL)
         node = node->up;
 
-    return Quadtree_remove_helper(node, p);
+    return Quadtree_remove_helper(node, p, parallel);
 }
 
 bool Quadtree_remove(Quadtree *node, Point p) {
-    return Quadtree_remove_driver(node, &p);
+    return Quadtree_remove_driver(node, &p, false);
 }
 
 int Quadtree_parallel_remove(pthread_t *pthread, pthread_attr_t *pthread_attr,
