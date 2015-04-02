@@ -49,6 +49,34 @@ static double Marsaglia_random() {
     return (num % denom) / (double)denom;
 }
 
+/**
+ * Marsaliga_rands
+ *
+ * Generates a pseudorandom integer from the given seed. The seed is mutated in-place.
+ *
+ * seed - the seed to use
+ *
+ * Returns a random integer.
+ */
+static uint32_t Marsaglia_rands(uint32_t *seed) {
+    return (unsigned)MarsagliaXOR(seed);
+}
+
+/**
+ * Marsaliga_randoms
+ *
+ * Generates a pseudorandom value from the given seed. The seed is mutated in-place.
+ *
+ * seed - the seed to use
+ *
+ * Returns a random value between [0, 1).
+ */
+static double Marsaglia_randoms(uint32_t *seed) {
+    const uint32_t denom = 1e8;
+    const uint32_t num = Marsaglia_rands(seed);
+    return (num % denom) / (double)denom;
+}
+
 static void Marsaglia_srand(uint32_t nseed) {
     Marsaglia_seed = nseed;
 }

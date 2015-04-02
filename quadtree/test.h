@@ -5,6 +5,7 @@ Testing suite utilities header
 #ifndef QUADTREE_TEST_H
 #define QUADTREE_TEST_H
 
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -19,10 +20,6 @@ Testing suite utilities header
 
 extern uint32_t Marsaglia_rand();
 #define rand() Marsaglia_rand()
-
-#ifndef NTHREADS
-#define NTHREADS 16
-#endif
 
 typedef struct {
     bool on;

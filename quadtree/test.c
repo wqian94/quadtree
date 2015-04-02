@@ -90,7 +90,10 @@ void test_sizes() {
     printf("sizeof(Point)     = %lu\n", sizeof(Point));
     printf("\n===Testing Quadtree size===\n");
     // Quadtree is normally 80 bytes, but we add an id parameter for testing, so it is 88 bytes
+    // If parallel, theres the additional lock
+    #ifndef PARALLEL
     assertLong(88, sizeof(Quadtree), "sizeof(Quadtree)");
+    #endif
 }
 
 void test_in_range() {

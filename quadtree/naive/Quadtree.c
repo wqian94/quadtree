@@ -283,7 +283,7 @@ bool Quadtree_remove_node(Node *node) {
 
     // now, get rid of pointers from the parent
     Node *parent = node->parent, *up = node->up, *down = node->down;
-    if (parent != NULL)
+    if (parent != NULL && parent->children[get_quadrant(parent->center, node->center)] == node)
         parent->children[get_quadrant(parent->center, node->center)] = NULL;
 
     // next, unlink pointers from up and down

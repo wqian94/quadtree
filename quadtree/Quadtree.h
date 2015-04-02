@@ -5,6 +5,7 @@ Interface for Quadtree data structure
 #ifndef QUADTREE_H
 #define QUADTREE_H
 
+#include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
 
@@ -60,6 +61,7 @@ typedef struct ParallelSkipQuadtreeNode_t Node;
  * children - the four children of the square; each entry is NULL if there is no child
  *     there. Each index refers to a quadrant, such that children[0] is Q1, [1] is Q2,
  *     and so on. Should never be all NULL unless node is a point
+ * lock - the lock
  */
 struct ParallelSkipQuadtreeNode_t {
     bool is_square;
@@ -68,10 +70,10 @@ struct ParallelSkipQuadtreeNode_t {
     Node *parent;
     Node *up, *down;
     Node *children[4];
-    pthread_rwlock_t lock;
-#ifdef QUADTREE_TEST
+    bool dirty;
+    pthread_mutex_t lock;
+    //pthread_rwlock_t lock;
     uint64_t id;
-#endif
 };
 #endif
 
@@ -84,12 +86,13 @@ typedef Node Quadtree;
  * were freed during a freeing operation. In addition, also contains information about
  * how many levels were freed.
  *
- * total - the total number of nodes freed, including intermediate nodes
- * leaf - the number of leaf nodes freed
- * levels - the number of levels freed
+ * total - the total number of nodes freed, including intermediate and dirty nodes
+ * clean - the total number of non-dirty nodes freed
+ * leaf - the number of non-dirty leaf nodes freed
+ * levels - the number of non-dirty levels freed
  */
 typedef struct QuadtreeFreeResult_t {
-    uint64_t total, leaf, levels;
+    uint64_t total, clean, leaf, levels;
 } QuadtreeFreeResult;
 
 #ifdef QUADTREE_TEST

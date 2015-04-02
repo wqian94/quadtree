@@ -60,6 +60,11 @@ ifdef PTHREAD
 CCFLAGS += -pthread -lpthread
 endif
 
+# for openmp
+ifdef OPENMP
+CCFLAGS += -fopenmp
+endif
+
 # for OFLAG in benchmarking
 OFLAG ?= O3
 

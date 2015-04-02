@@ -61,6 +61,10 @@ void print_Quadtree(Quadtree *root) {
         printf(", children[3]=%p", root->children[3]);
 #endif
 
+#ifdef PARALLEL
+    printf(", lock=%p", &root->lock);
+#endif
+
     printf("]\n");
 
     if (root->up != NULL)
@@ -82,13 +86,6 @@ void print_Quadtree(Quadtree *root) {
 void test_random_n(const uint64_t num_samples) {
     Marsaglia_srand(num_samples % ((1LL << 32) - 1));
     char buffer[1000];
-    pthread_t threads[NTHREADS];
-    bool returns[NTHREADS];
-    pthread_attr_t thread_attr;
-    pthread_attr_init(&thread_attr);
-    pthread_attr_setdetachstate(&thread_attr, PTHREAD_CREATE_JOINABLE);
-
-    clock_t start, end;
 
     float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
     Point p1 = Point_init(0, 0);
@@ -97,50 +94,28 @@ void test_random_n(const uint64_t num_samples) {
 
     test_rand_off();
 
-    float64_t* time_samples = (float64_t*)malloc(sizeof(float64_t) * num_samples);
+    uint64_t *time_samples = (uint64_t*)malloc(sizeof(uint64_t) * num_samples);
     uint64_t total_cycles = 0;
 
     // inserting everything
 
     uint64_t i, j, k;
 
-    /*#ifdef PARALLEL
-    j = 0;
-    start = clock();
-    #endif*/
     for (i = 0; i < num_samples; i++) {
         double x = (Marsaglia_random() - 0.5) * s1;
         double y = (Marsaglia_random() - 0.5) * s1;
         points[i] = Point_init(x, y);
-        /*#ifdef PARALLEL
-        Quadtree_parallel_add(threads + j, &thread_attr, q1, points[i], returns + j);
-        j++;
-        if (j == NTHREADS) {
-            for (k = 0; k < NTHREADS; k++) {
-                pthread_join(threads[k], NULL);
-            }
-            j = 0;
-        }
-        #else*/
-        start = clock();
+    }
+
+    #pragma omp parallel for
+    for (i = 0; i < num_samples; i++) {
+        clock_t start = clock();
         bool result = Quadtree_add(q1, points[i]);
-        end = clock();
-        if (result) {
-            //time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
-            total_cycles += (end - start);
-        }
-        else {
-            i--;
-        }
-        //#endif
+        clock_t end = clock();
+        time_samples[i] = ((uint64_t)(end - start));
     }
-    /*#ifdef PARALLEL
-    for (k = 0; k < j; k++) {
-        pthread_join(threads[k], NULL);
-    }
-    end = clock();
-    total_cycles += (end - start);
-    #endif*/
+    for (i = 0; i < num_samples; i++)
+        total_cycles += time_samples[i];
 
     #ifdef VERBOSE
     printf("Total time for %llu inserts: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
@@ -151,35 +126,15 @@ void test_random_n(const uint64_t num_samples) {
     // then to try searching for everything
     total_cycles = 0;
 
-    #ifdef PARALLEL
-    j = 0;
-    start = clock();
-    #endif
+    #pragma omp parallel for
     for (i = 0; i < num_samples; i++) {
-        #ifdef PARALLEL
-        Quadtree_parallel_search(threads + j, &thread_attr, q1, points[i], returns + j);
-        j++;
-        if (j == NTHREADS) {
-            for (k = 0; k < NTHREADS; k++) {
-                pthread_join(threads[k], NULL);
-            }
-            j = 0;
-        }
-        #else
-        start = clock();
+        clock_t start = clock();
         bool result = Quadtree_search(q1, points[i]);
-        end = clock();
-        //time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
-        total_cycles += (end - start);
-        #endif
+        clock_t end = clock();
+        time_samples[i] = ((uint64_t)(end - start));
     }
-    #ifdef PARALLEL
-    for (k = 0; k < j; k++) {
-        pthread_join(threads[k], NULL);
-    }
-    end = clock();
-    total_cycles += (end - start);
-    #endif
+    for (i = 0; i < num_samples; i++)
+        total_cycles += time_samples[i];
 
     #ifdef VERBOSE
     printf("Total time for %llu queries: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
@@ -190,37 +145,15 @@ void test_random_n(const uint64_t num_samples) {
     // now to remove everything, in order
     total_cycles = 0;
 
-    uint64_t count = 0;
-    /*#ifdef PARALLEL
-    j = 0;
-    start = clock();
-    #endif*/
+    #pragma omp parallel for
     for (i = 0; i < num_samples; i++) {
-        /*#ifdef PARALLEL
-        Quadtree_parallel_remove(threads + j, &thread_attr, q1, points[i], returns + j);
-        j++;
-        if (j == NTHREADS) {
-            for (k = 0; k < NTHREADS; k++) {
-                pthread_join(threads[k], NULL);
-            }
-            j = 0;
-        }
-        #else*/
-        start = clock();
+        clock_t start = clock();
         bool result = Quadtree_remove(q1, points[i]);
-        end = clock();
-        count += Quadtree_search(q1, points[i]);
-        //time_samples[i] = ((float64_t)(end - start)); // / CLOCKS_PER_SEC;
-        total_cycles += (end - start);
-        //#endif
+        clock_t end = clock();
+        time_samples[i] = ((uint64_t)(end - start));
     }
-    /*#ifdef PARALLEL
-    for (k = 0; k < j; k++) {
-        pthread_join(threads[k], NULL);
-    }
-    end = clock();
-    total_cycles += (end - start);
-    #endif*/
+    for (i = 0; i < num_samples; i++)
+        total_cycles += time_samples[i];
 
     #ifdef VERBOSE
     printf("Total time for %llu deletes: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
@@ -229,21 +162,18 @@ void test_random_n(const uint64_t num_samples) {
     #endif
 
     #ifdef VERBOSE
-    printf("Search count: %llu\n", (unsigned long long)count);
-
     QuadtreeFreeResult result = Quadtree_free(q1);
-    printf("Levels: %llu\nTotal number of leftover nodes (should be 1): %llu\nNumber of leftover leaf nodes (should be 0): %llu\n",
-        (unsigned long long)result.levels, (unsigned long long)result.total, (unsigned long long)result.leaf);
+    printf("Levels: %llu\nTotal number of leftover nodes: %llu\nTotal number of leftover non-dirty nodes (should be 1): %llu\nNumber of leftover non-dirty leaf nodes (should be 0): %llu\n",
+        (unsigned long long)result.levels, (unsigned long long)result.total, (unsigned long long)result.clean, (unsigned long long)result.leaf);
     #else
     Quadtree_free(q1);
     #endif
 
     free(points);
     free(time_samples);
-
-    pthread_attr_destroy(&thread_attr);
 }
 
+void test_random_2_4() {test_random_n(1LL << 4);}
 void test_random_2_10() {test_random_n(1LL << 10);}
 void test_random_2_11() {test_random_n(1LL << 11);}
 void test_random_2_12() {test_random_n(1LL << 12);}
@@ -270,8 +200,9 @@ int main(int argc, char* argv[]) {
     #ifdef VERBOSE
     printf("[Beginning tests]\n");
     
-    start_test(test_random_2_10, "Random 2^10 test");
-    //start_test(test_random_2_14, "Random 2^14 test");
+    //start_test(test_random_2_4, "Random 2^4 test");
+    //start_test(test_random_2_10, "Random 2^10 test");
+    start_test(test_random_2_14, "Random 2^14 test");
     //start_test(test_random_2_15, "Random 2^15 test");
     //start_test(test_random_2_20, "Random 2^20 test");
     //start_test(test_random_2_25, "Random 2^25 test");
