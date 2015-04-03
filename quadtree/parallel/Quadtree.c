@@ -243,12 +243,13 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     // branch down a level if possible
     Node *down_node = NULL;
     if (Node_valid(parent->down)) {
+        unlock(parent);
         Node *parent_down = parent->down;
         if (!Node_valid(down_node = Quadtree_add_helper(parent_down, p,
-                (gap_depth > 0) && (gap_depth - 1)))) {
-            unlock(parent);
+                (gap_depth > 0) * (gap_depth - 1)))) {
             return NULL;
         }
+        lock(parent);
     }
 
     // if gap_depth is not zero, we shouldn't actually add anything
@@ -410,7 +411,7 @@ bool Quadtree_add(Quadtree *node, Point p) {
  * Returns true if removal is successful, false otherwise.
  */
 bool Quadtree_remove_node(Node *node) {
-    if (!Node_valid(node->down) && !Node_valid(node->parent))
+    if (!Node_valid(node) || !Node_valid(node->down) && !Node_valid(node->parent))
         return false;
 
     if (Node_valid(node->up))
@@ -484,25 +485,28 @@ bool Quadtree_remove_node(Node *node) {
     node->dirty = true;
     unlock(node);
 
+    if (Node_valid(up))
+        unlock(up);
+
+    if (Node_valid(down))
+        unlock(down);
+
     // then, recurse up the parent as necessary
     if (Node_valid(parent)) {
-        unlock(parent);
         register uint8_t num_children = 0, i;
         for (i = 0; i < 4; i++)
             num_children += Node_valid(parent->children[i]);
+        unlock(parent);
         if (num_children < 2)
             Quadtree_remove_node(parent);
     }
 
     // finally, recurse on up and down
-    if (Node_valid(up)) {
-        unlock(up);
+    if (Node_valid(up))
         Quadtree_remove_node(up);
-    }
-    if (Node_valid(down)) {
-        unlock(down);
+
+    if (Node_valid(down))
         Quadtree_remove_node(down);
-    }
 
     return true;
 }

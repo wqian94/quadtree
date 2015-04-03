@@ -38,21 +38,18 @@ void test_random_n(const uint64_t num_samples) {
         pkt->point = NULL;
 
         // write
-        if (query_ptr >= insert_ptr || rand() < WRATIO) {
+        if (query_ptr >= insert_ptr || random() < WRATIO) {
             // delete
-            if (delete_ptr < insert_ptr && rand() < DRATIO) {
+            if (delete_ptr < insert_ptr && random() < DRATIO) {
                 pkt->delete = true;
                 pkt->point = delete_ptr;
                 delete_ptr++;
                 delete_count++;
-                // move the query pointer to something that hasn't been deleted
-                if (query_ptr < delete_ptr)
-                    query_ptr = delete_ptr;
             }
             // insert
             else {
-                double x = (rand() - 0.5) * s1;
-                double y = (rand() - 0.5) * s1;
+                double x = (random() - 0.5) * s1;
+                double y = (random() - 0.5) * s1;
                 *insert_ptr = Point_init(x, y);
                 pkt->insert = true;
                 pkt->point = insert_ptr;
@@ -62,9 +59,12 @@ void test_random_n(const uint64_t num_samples) {
         }
         // read
         else {
+            query_ptr = delete_ptr;
+            while (query_ptr + 1 < insert_ptr)
+                if (random() < 0.1)
+                    break;
             pkt->query = true;
             pkt->point = query_ptr;
-            query_ptr++;
             query_count++;
         }
     }
@@ -111,10 +111,10 @@ void test_random_n(const uint64_t num_samples) {
     total_cycles = insert_cycles + query_cycles + delete_cycles;
 
     #ifdef VERBOSE
-    printf("Total time for %llu inserts:    %.8lf s\n", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total time for %llu querys:     %.8lf s\n", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total time for %llu deletes:    %.8lf s\n", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total time for %llu operations: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Total time for %10llu inserts:    %.8lf s\n", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Total time for %10llu queries:    %.8lf s\n", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Total time for %10llu deletes:    %.8lf s\n", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Total time for %10llu operations: %.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
     #else
     printf("%llu, %.8lf", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
     printf(", %llu, %.8lf", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);

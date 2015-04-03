@@ -26,6 +26,9 @@ Benchmarking suite utilities header
 extern uint32_t Marsaglia_rand();
 #define rand() Marsaglia_rand()
 
+extern double Marsaglia_random();
+#define random() Marsaglia_random()
+
 typedef struct {
     bool on;
     uint32_t *food;

@@ -3,7 +3,7 @@ export
 SHELL := /bin/bash
 
 CC := gcc
-CFLAGS := -std=gnu99 -g
+CFLAGS := -std=gnu99 -g -fopenmp
 RM := rm -f
 CPU_NODE := 0
 NOW := $(shell date -u +%s)
@@ -58,11 +58,6 @@ endif
 # for pthreads
 ifdef PTHREAD
 CCFLAGS += -pthread -lpthread
-endif
-
-# for openmp
-ifdef OPENMP
-CCFLAGS += -fopenmp
 endif
 
 # for OFLAG in benchmarking
@@ -136,9 +131,11 @@ benchmark-%:
 	$(MAKE) -e run-benchmark-benchmark OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -$(OFLAG)"
 
 .PHONY: run-benchmark-%
-run-benchmark-%: POSTRUN := >> benchmarks/results/test-$(OFLAG)-$(NOW).txt
+run-benchmark-%: POSTRUN := | tee benchmarks/results/test-$(OFLAG)-$(NOW).txt
 run-benchmark-%: $(OBJS) compile-% %.o
 	mv $* benchmarks/bin/test-$(OFLAG)-$(NOW)
+	-$(RM) benchmarks/bin/test-$(OFLAG)-recent
+	ln benchmarks/bin/test-$(OFLAG)-$(NOW) benchmarks/bin/test-$(OFLAG)-recent
 	for i in {1..$(TRIALS)};do $(PRERUN) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);done
 
 .PHONY: run-%
