@@ -22,7 +22,12 @@ COUNT ?= 16384
 WRATIO ?= 0.1
 DRATIO ?= 0.5
 
-CCFLAGS := -DCOUNT=$(COUNT)LL -DWRATIO=$(WRATIO) -DDRATIO=$(DRATIO) \
+# for verboseness
+ifdef VERBOSE
+CCFLAGS += -DVERBOSE
+endif
+
+CCFLAGS += -DCOUNT=$(COUNT)LL -DWRATIO=$(WRATIO) -DDRATIO=$(DRATIO) \
 	-DHEADER=\"./Quadtree.h\" -DTYPE=Quadtree \
 	-DCONSTRUCTOR=Quadtree_init -DDESTRUCTOR=Quadtree_free \
 	-DINSERT=Quadtree_add -DQUERY=Quadtree_search -DDELETE=Quadtree_remove

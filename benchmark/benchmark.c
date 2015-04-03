@@ -31,18 +31,18 @@ void test_random_n(const uint64_t num_samples) {
     register uint64_t i;
 
     for (i = 0; i < num_samples; i++) {
-        OperationPacket pkt = packets[i];
-        pkt.insert = false;
-        pkt.query = false;
-        pkt.delete = false;
-        pkt.point = NULL;
+        OperationPacket *pkt= packets + i ;
+        pkt->insert = false;
+        pkt->query = false;
+        pkt->delete = false;
+        pkt->point = NULL;
 
         // write
         if (query_ptr >= insert_ptr || rand() < WRATIO) {
             // delete
             if (delete_ptr < insert_ptr && rand() < DRATIO) {
-                pkt.delete = true;
-                pkt.point = delete_ptr;
+                pkt->delete = true;
+                pkt->point = delete_ptr;
                 delete_ptr++;
                 delete_count++;
                 // move the query pointer to something that hasn't been deleted
@@ -54,16 +54,16 @@ void test_random_n(const uint64_t num_samples) {
                 double x = (rand() - 0.5) * s1;
                 double y = (rand() - 0.5) * s1;
                 *insert_ptr = Point_init(x, y);
-                pkt.insert = true;
-                pkt.point = insert_ptr;
+                pkt->insert = true;
+                pkt->point = insert_ptr;
                 insert_ptr++;
                 insert_count++;
             }
         }
         // read
         else {
-            pkt.query = true;
-            pkt.point = query_ptr;
+            pkt->query = true;
+            pkt->point = query_ptr;
             query_ptr++;
             query_count++;
         }

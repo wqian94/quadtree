@@ -73,7 +73,7 @@ TRIALS ?= 1
 
 .PHONY: all
 all:
-	@echo "\
+	@echo -e "\
 \`make all' is not valid. Here are a list of targets to use:\n\
 \n\
 Make targets:\n\
