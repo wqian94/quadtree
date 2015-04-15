@@ -18,6 +18,11 @@ ifdef MTRACE
 CCFLAGS += -DMTRACE
 endif
 
+# for OMP_NUM_THREADS
+ifdef NTHREADS
+CCFLAGS += -DOMP_NTHREADS=$(NTHREADS)
+endif
+
 COUNT ?= 1048576# expected ~1MB of data
 WRATIO ?= 0.1
 DRATIO ?= 0.5

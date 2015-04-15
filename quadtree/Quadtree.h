@@ -44,7 +44,7 @@ struct SerialSkipQuadtreeNode_t {
 #endif
 };
 #else
-typedef struct ParallelSkipQuadtreeNode_t Node;
+typedef volatile struct ParallelSkipQuadtreeNode_t Node;
 
 /*
  * struct ParallelSkipQuadtreeNode_t
@@ -70,8 +70,8 @@ struct ParallelSkipQuadtreeNode_t {
     Node *parent;
     Node *up, *down;
     Node *children[4];
-    bool dirty;
-    pthread_mutex_t lock;
+    volatile bool dirty;
+    volatile pthread_mutex_t lock;
     //pthread_rwlock_t lock;
     uint64_t id;
 };
@@ -233,6 +233,10 @@ bool Quadtree_add(Quadtree *node, Point p);
  * wasn't in the tree to begin with.
  */
 bool Quadtree_remove(Quadtree *node, Point p);
+
+/*bool Quadtree_search(Quadtree *node, Point p, int64_t *lock_count, uint64_t index);
+bool Quadtree_add(Quadtree *node, Point p, int64_t *lock_count, uint64_t index);
+bool Quadtree_remove(Quadtree *node, Point p, int64_t *lock_count, uint64_t index);*/
 
 /*
  * Quadtree_free

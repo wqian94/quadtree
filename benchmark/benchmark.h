@@ -8,7 +8,9 @@ Benchmarking suite utilities header
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/syscall.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <assert.h>
 #include <mcheck.h>

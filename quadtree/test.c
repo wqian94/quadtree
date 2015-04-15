@@ -15,49 +15,77 @@ void print_Quadtree(Quadtree *root) {
     printf("center=(%lf, %lf), length=%lf, is_square=%d",
         root->center->x, root->center->y, root->length, root->is_square);
 
-    if (root->parent != NULL)
+    if (root->parent != NULL
+        #ifdef PARALLEL
+        && !root->parent->dirty
+        #endif
+        )
 #ifdef QUADTREE_TEST
         printf(", parent=%llu", (unsigned long long)root->parent->id);
 #else
         printf(", parent=%p", root->parent);
 #endif
 
-    if (root->up != NULL)
+    if (root->up != NULL
+        #ifdef PARALLEL
+        && !root->up->dirty
+        #endif
+        )
 #ifdef QUADTREE_TEST
         printf(", up=%llu", (unsigned long long)root->up->id);
 #else
         printf(", up=%p", root->up);
 #endif
 
-    if (root->down != NULL)
+    if (root->down != NULL
+        #ifdef PARALLEL
+        && !root->down->dirty
+        #endif
+        )
 #ifdef QUADTREE_TEST
         printf(", down=%llu", (unsigned long long)root->down->id);
 #else
         printf(", down=%p", root->down);
 #endif
 
-    if (root->children[0] != NULL)
+    if (root->children[0] != NULL
+        #ifdef PARALLEL
+        && !root->children[0]->dirty
+        #endif
+        )
 #ifdef QUADTREE_TEST
         printf(", children[0]=%llu", (unsigned long long)root->children[0]->id);
 #else
         printf(", children[0]=%p", root->children[0]);
 #endif
 
-    if (root->children[1] != NULL)
+    if (root->children[1] != NULL
+        #ifdef PARALLEL
+        && !root->children[1]->dirty
+        #endif
+        )
 #ifdef QUADTREE_TEST
         printf(", children[1]=%llu", (unsigned long long)root->children[1]->id);
 #else
         printf(", children[1]=%p", root->children[1]);
 #endif
 
-    if (root->children[2] != NULL)
+    if (root->children[2] != NULL
+        #ifdef PARALLEL
+        && !root->children[2]->dirty
+        #endif
+        )
 #ifdef QUADTREE_TEST
         printf(", children[2]=%llu", (unsigned long long)root->children[2]->id);
 #else
         printf(", children[2]=%p", root->children[2]);
 #endif
 
-    if (root->children[3] != NULL)
+    if (root->children[3] != NULL
+        #ifdef PARALLEL
+        && !root->children[3]->dirty
+        #endif
+        )
 #ifdef QUADTREE_TEST
         printf(", children[3]=%llu", (unsigned long long)root->children[3]->id);
 #else
@@ -66,19 +94,39 @@ void print_Quadtree(Quadtree *root) {
 
     printf("]\n");
 
-    if (root->up != NULL)
+    if (root->up != NULL
+        #ifdef PARALLEL
+        && !root->up->dirty
+        #endif
+        )
         print_Quadtree(root->up);
 
-    if (root->children[0] != NULL)
+    if (root->children[0] != NULL
+        #ifdef PARALLEL
+        && !root->children[0]->dirty
+        #endif
+        )
         print_Quadtree(root->children[0]);
 
-    if (root->children[1] != NULL)
+    if (root->children[1] != NULL
+        #ifdef PARALLEL
+        && !root->children[1]->dirty
+        #endif
+        )
         print_Quadtree(root->children[1]);
 
-    if (root->children[2] != NULL)
+    if (root->children[2] != NULL
+        #ifdef PARALLEL
+        && !root->children[2]->dirty
+        #endif
+        )
         print_Quadtree(root->children[2]);
 
-    if (root->children[3] != NULL)
+    if (root->children[3] != NULL
+        #ifdef PARALLEL
+        && !root->children[3]->dirty
+        #endif
+        )
         print_Quadtree(root->children[3]);
 }
 

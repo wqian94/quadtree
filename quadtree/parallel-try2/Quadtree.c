@@ -4,9 +4,6 @@ Naive parallel implementation of compressed skip quadtree with pthreads
 
 #include <assert.h>
 #include <stdlib.h>
-#include <sys/syscall.h>
-#include <time.h>
-#include <unistd.h>
 
 #include "../types.h"
 #include "../Quadtree.h"
@@ -30,32 +27,22 @@ pthread_mutex_t *QUADTREE_NODE_COUNT_MUTEX = NULL;
 #endif
 
 // macros for parallelism
-#ifndef trylock
-#define trylock(x) pthread_mutex_trylock((pthread_mutex_t*)&x->lock)
-#endif
-
-#ifndef lock
-#define lock(x) {pthread_mutex_timedlock((pthread_mutex_t*)&x->lock, &(const struct timespec){ .tv_sec = 1, .tv_nsec = 0});}
-#endif
-
-#ifndef unlock
-#define unlock(x) pthread_mutex_unlock((pthread_mutex_t*)&x->lock);
-#endif
+//#define lock(x) {if (x == NULL){printf("NULLlock\n");getchar();}int code;printf("%llx wants %p\n",(unsigned long long)pthread_self(),&x->lock);do{code=pthread_mutex_trylock(&x->lock);}while(code);printf("%llx obtained %p\n",(unsigned long long)pthread_self(),&x->lock);}
+#define lock(x) pthread_mutex_lock(&x->lock)
+#define trylock(x) pthread_mutex_trylock(&x->lock)
+#define unlock(x) pthread_mutex_unlock(&x->lock)
+//#define unlock(x) {pthread_mutex_unlock(&x->lock);printf("%llx released %p\n",(unsigned long long)pthread_self(),&x->lock);}
 
 #define min_node(x, y) ((long)y ^ (((long)x ^ (long)y) & -(x < y)))
 #define max_node(x, y) ((long)x ^ (((long)x ^ (long)y) & -(x < y)))
 
 #define sort2(x, y) (y = (Node*)((long)(x = (Node*)(max_node(x, y) ^ (long)(y = (Node*)((long)y ^ (long)x)))) ^ (long)y))
 
-static inline bool Node_valid(Node *node);
-
 void print(Node *n) {
     if (n == NULL)
         printf("NULL\n");
     else
-        printf("pointer = %p, is_square = %s, center = (%.6lf, %.6lf), length = %llu, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}, dirty = %s, id = %llu\n", n, n->is_square ? "true" : "false", n->center->x, n->center->y, (unsigned long long)n->length,
-        Node_valid(n->parent) ? NULL : n->parent, Node_valid(n->up) ? NULL : n->up, Node_valid(n->down) ? NULL : n->down, Node_valid(n->children[0]) ? NULL : n->children[0], Node_valid(n->children[1]) ? NULL : n->children[1], Node_valid(n->children[2]) ? NULL : n->children[2], Node_valid(n->children[3]) ? NULL : n->children[3],
-        n->dirty ? "true" : "false", (unsigned long long)n->id);
+        printf("pointer = %p, is_square = %s, center = (%.6lf, %.6lf), length = %llu, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}, dirty = %s, id = %llu\n", n, n->is_square ? "true" : "false", n->center->x, n->center->y, (unsigned long long)n->length, n->parent, n->up, n->down, n->children[0], n->children[1], n->children[2], n->children[3], n->dirty ? "true" : "false", (unsigned long long)n->id);
 }
 
 Node* Node_init(float64_t length, Point center) {
@@ -77,7 +64,7 @@ Node* Node_init(float64_t length, Point center) {
     node->children[1] = NULL;
     node->children[2] = NULL;
     node->children[3] = NULL;
-    pthread_mutex_init((pthread_mutex_t*)&node->lock, pthread_mutex_attr());
+    pthread_mutex_init(&node->lock, NULL);
     node->dirty = false;
     #ifdef QUADTREE_TEST
     pthread_mutex_lock(QUADTREE_NODE_COUNT_MUTEX);
@@ -103,10 +90,10 @@ Quadtree* Quadtree_init(float64_t length, Point center) {
  */
 static inline void Node_free(Node *node) {
     #ifdef PARALLEL
-    pthread_mutex_destroy((pthread_mutex_t*)&node->lock);
+    pthread_mutex_destroy(&node->lock);
     #endif
-    free((void*)node->center);
-    free((void*)node);
+    free(node->center);
+    free(node);
 }
 
 /*
@@ -129,11 +116,11 @@ static inline bool Node_valid(Node *node) {
  *
  * x, y - the nodes to lock
  */
-/*static inline void lock2(Node *x, Node *y) {
+static inline void lock2(Node *x, Node *y) {
     sort2(x, y);
     lock(x);
     lock(y);
-}*/
+}
 
 /* lock3
  *
@@ -141,14 +128,14 @@ static inline bool Node_valid(Node *node) {
  *
  * x, y, z - the nodes to lock
  */
-/*static inline void lock3(Node *x, Node *y, Node *z) {
+static inline void lock3(Node *x, Node *y, Node *z) {
     sort2(x, y);
     sort2(y, z);
     sort2(x, y);
     lock(x);
     lock(y);
     lock(z);
-}*/
+}
 
 /* lock4
  *
@@ -156,7 +143,7 @@ static inline bool Node_valid(Node *node) {
  *
  * w, x, y, z - the nodes to lock
  */
-/*static inline void lock4(Node *w, Node *x, Node *y, Node *z) {
+static inline void lock4(Node *w, Node *x, Node *y, Node *z) {
     sort2(w, x);
     sort2(x, y);
     sort2(y, z);
@@ -167,7 +154,7 @@ static inline bool Node_valid(Node *node) {
     lock(x);
     lock(y);
     lock(z);
-}*/
+}
 
 /*
  * Quadtree_search_helper
@@ -185,11 +172,14 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     if (!in_range(node, p))
         return false;
 
+    if (node->dirty && node->down != NULL)
+        return Quadtree_search_helper(node->down, p);
+
     register uint8_t quadrant = get_quadrant(node->center, p);
 
     // if the target child is NULL, we try to drop down a level
     if (!Node_valid(node->children[quadrant])) {
-        if (Node_valid(node->down))
+        if (node->down != NULL)
             return Quadtree_search_helper(node->down, p);
         // otherwise, we're on the bottom-most level and just can't find the point
         return false;
@@ -240,13 +230,11 @@ bool Quadtree_search(Quadtree *node, Point p) {
  * Returns the corresponding node, one level lower, or NULL if the action failed.
  */
 Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
-    uint64_t id = syscall(SYS_gettid);
-    uint64_t count = 0;
     if (!in_range(node, p))
         return NULL;
 
     // horizontal traversal
-    Node *parent = NULL, *child = node;
+    volatile Node *parent = NULL, *child = node;
     do {
         lock(child);
         if (parent != NULL)
@@ -262,15 +250,15 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     }
 
     // branch down a level if possible
-    Node *down_node = NULL;
+    volatile Node *down_node = NULL;
     if (Node_valid(parent->down)) {
-        //unlock(parent);
+        unlock(parent);
         Node *parent_down = parent->down;
         if (!Node_valid(down_node = Quadtree_add_helper(parent_down, p,
                 (gap_depth > 0) * (gap_depth - 1)))) {
             return NULL;
         }
-        //lock(parent);
+        lock(parent);
     }
 
     // if gap_depth is not zero, we shouldn't actually add anything
@@ -279,7 +267,17 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
         return down_node;
     }
 
-    Node *new_node = Node_init(0, *p);
+    child = parent;
+    unlock(child);
+    do {
+        lock(child);
+        if (parent != NULL)
+            unlock(parent);
+        parent = child;
+        child = parent->children[get_quadrant(parent->center, p)];
+    } while(Node_valid(child) && child->is_square && in_range(child, p));
+
+    volatile Node *new_node = Node_init(0, *p);
     new_node->parent = parent;
 
     // time to try inserting onto this level
@@ -307,13 +305,13 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     else {
         // create a new square to contain the sibling and the new node
         uint8_t square_quadrant = quadrant;
-        Node *square = Quadtree_init(0.5 * parent->length, get_new_center(parent, quadrant));
+        volatile Node *square = Quadtree_init(0.5 * parent->length, get_new_center(parent, quadrant));
         lock(square);
         lock(new_node);
         square->parent = parent;
 
         // grab the sibling-to-be
-        Node *sibling = parent->children[quadrant];
+        volatile Node *sibling = parent->children[quadrant];
         lock(sibling);
 
         // now, we keep splitting until the new node and the sibling are in different quadrants
@@ -330,7 +328,7 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
         square->children[sibling_quadrant] = sibling;
 
         // now, we need to find the down square to this square, if we're not on the last level
-        Node *down_square = NULL;
+        volatile Node *down_square = NULL;
         if (Node_valid(parent->down)) {
             down_square = parent->down;
             lock(down_square);
@@ -350,7 +348,7 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
 
         bool try = !parent->dirty && !square->dirty && !new_node->dirty && !sibling->dirty &&
             (Node_valid(down_square) && Node_valid(down_node) || !Node_valid(parent->down));
-        if (true || try) {
+        if (try) {
             if (Node_valid(down_node))
                 down_node->up = new_node;
             new_node->down = down_node;
@@ -372,7 +370,7 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
         if (Node_valid(down_node))
             unlock(down_node);
 
-        if (false && !try) {
+        if (!try) {
             Node_free(square);
             Node_free(new_node);
             return Quadtree_add_helper(node, p, gap_depth);
@@ -383,38 +381,30 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
 }
 
 bool Quadtree_add(Quadtree *node, Point p) {
-    Quadtree *param_node = node;
     if (!Node_valid(node))
         return false;
 
-    #ifndef QUADTREE_TEST
     uint32_t mseed = Marsaglia_seed + (uint32_t)clock() + (uint32_t)pthread_self();
     mseed = rand();
     uint32_t try = mseed & 0xF;
     uint32_t mask = ~0 << try;
     mseed = (mseed >> try) | ((mseed & ~mask) << try);
-    #endif
 
     while (rand() % 100 < 50) {
         if (!Node_valid(node->up)) {
             #ifdef PARALLEL
             lock(node);
-            Node *new_up;
             if (!Node_valid(node->up)) {
             #endif
-                new_up = Quadtree_init(node->length, *node->center);
+                Node *new_up = Quadtree_init(node->length, *node->center);
                 new_up->down = node;
                 node->up = new_up;
             #ifdef PARALLEL
             }
-            else
-                new_up = node->up;
             unlock(node);
             #endif
-            node = new_up;
         }
-        else
-            node = node->up;
+        node = node->up;
     }
     
     register uint64_t gap_depth = 0;  // number of layers to ignore when inserting
@@ -443,6 +433,8 @@ bool Quadtree_remove_node(Node *node) {
     if (!Node_valid(node) || !Node_valid(node->down) && !Node_valid(node->parent))
         return false;
 
+    if (Node_valid(node->up))
+        lock(node->up);
     if (Node_valid(node->parent))
         lock(node->parent);
     lock(node);
@@ -459,6 +451,8 @@ bool Quadtree_remove_node(Node *node) {
 
         // cannot remove square if more than 1 child
         if (num_children > 1) {
+            if (Node_valid(node->up))
+                unlock(node->up);
             if (Node_valid(node->parent))
                 unlock(node->parent);
             unlock(node);
@@ -471,16 +465,38 @@ bool Quadtree_remove_node(Node *node) {
             // however this cannot happen at the root. If we're going to remove a copy of
             // the root, we want no children on that node
             if (!Node_valid(node->parent)) {
+                if (Node_valid(node->up))
+                    unlock(node->up);
+                if (Node_valid(node->parent))
+                    unlock(node->parent);
                 unlock(node);
                 return false;
             }
 
             // if all goes well, we can relink
-            child->parent = node->parent;
             node->parent->children[get_quadrant(node->parent->center, node->center)] = child;
+            child->parent = node->parent;
+            //node->parent = NULL;
         }
 
         // otherwise, 0 children, and no problem
+    }
+    if (Node_valid(node->down))
+        lock(node->down);
+
+    // now, get rid of pointers from the parent
+    Node *parent = node->parent, *up = node->up, *down = node->down;
+    if (Node_valid(parent) && parent->children[get_quadrant(parent->center, node->center)] == node)
+        parent->children[get_quadrant(parent->center, node->center)] = NULL;
+
+    // next, unlink pointers from up and down
+    if (Node_valid(node->up)) {
+        node->up->down = NULL;
+        //node->up = NULL;
+    }
+    if (Node_valid(node->down)) {
+        node->down->up = NULL;
+        //node->down = NULL;
     }
 
     // now, we can get rid of our node
@@ -488,19 +504,28 @@ bool Quadtree_remove_node(Node *node) {
     node->dirty = true;
     unlock(node);
 
+    if (Node_valid(up))
+        unlock(up);
+
+    if (Node_valid(down))
+        unlock(down);
+
     // then, recurse up the parent as necessary
-    if (Node_valid(node->parent)) {
+    if (Node_valid(parent)) {
         register uint8_t num_children = 0, i;
         for (i = 0; i < 4; i++)
-            num_children += Node_valid(node->parent->children[i]);
-        unlock(node->parent);
+            num_children += Node_valid(parent->children[i]);
+        unlock(parent);
         if (num_children < 2)
-            Quadtree_remove_node(node->parent);
+            Quadtree_remove_node(parent);
     }
 
-    // finally, recurse on down
-    if (Node_valid(node->down))
-        Quadtree_remove_node(node->down);
+    // finally, recurse on up and down
+    if (Node_valid(up))
+        Quadtree_remove_node(up);
+
+    if (Node_valid(down))
+        Quadtree_remove_node(down);
 
     return true;
 }

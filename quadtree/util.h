@@ -5,6 +5,7 @@ Some utility functions
 #ifndef UTIL_H
 #define UTIL_H
 
+#include <pthread.h>
 #include <stdint.h>
 
 /**
@@ -79,6 +80,23 @@ static double Marsaglia_randoms(uint32_t *seed) {
 
 static void Marsaglia_srand(uint32_t nseed) {
     Marsaglia_seed = nseed;
+}
+
+static volatile pthread_mutexattr_t lock_attr, *lock_attr_ptr = NULL;
+
+static void pthread_mutex_attr_init() {
+    pthread_mutexattr_init((pthread_mutexattr_t*)&lock_attr);
+    pthread_mutexattr_settype((pthread_mutexattr_t*)&lock_attr, PTHREAD_MUTEX_ERRORCHECK);
+    lock_attr_ptr = &lock_attr;
+}
+
+static pthread_mutexattr_t* pthread_mutex_attr() {
+    return (pthread_mutexattr_t*)lock_attr_ptr;
+}
+
+static void pthread_mutex_attr_destroy() {
+    lock_attr_ptr = NULL;
+    pthread_mutexattr_destroy((pthread_mutexattr_t*)&lock_attr);
 }
 
 #endif
