@@ -141,23 +141,23 @@ void test_random_n(const uint64_t num_samples) {
     total_cycles = insert_cycles + query_cycles + delete_cycles;
 
     #ifdef VERBOSE
-    printf("Total work for %10llu inserts:     %12.8lf s\n", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total work for %10llu queries:     %12.8lf s\n", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total work for %10llu deletes:     %12.8lf s\n", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total work for %10llu operations:  %12.8lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu inserts:     %12.8lf s\n", (unsigned long long)insert_count, insert_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu queries:     %12.8lf s\n", (unsigned long long)query_count, query_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu deletes:     %12.8lf s\n", (unsigned long long)delete_count, delete_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu operations:  %12.8lf s\n", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
+    printf("Total work for %10llu inserts:     %12.4lf s\n", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Total work for %10llu queries:     %12.4lf s\n", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Total work for %10llu deletes:     %12.4lf s\n", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Total work for %10llu operations:  %12.4lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Span of %17llu inserts:     %12.4lf s\n", (unsigned long long)insert_count, insert_slowest / (float64_t)CLOCKS_PER_SEC);
+    printf("Span of %17llu queries:     %12.4lf s\n", (unsigned long long)query_count, query_slowest / (float64_t)CLOCKS_PER_SEC);
+    printf("Span of %17llu deletes:     %12.4lf s\n", (unsigned long long)delete_count, delete_slowest / (float64_t)CLOCKS_PER_SEC);
+    printf("Span of %17llu operations:  %12.4lf s\n", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
     #else
-    printf("%llu, %.8lf", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.8lf", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.8lf", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.8lf", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.8lf", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.8lf", (unsigned long long)insert_count, insert_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.8lf", (unsigned long long)query_count, query_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.8lf", (unsigned long long)delete_count, delete_slowest / (float64_t)CLOCKS_PER_SEC);
+    printf("%llu, %.4lf", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf(", %llu, %.4lf", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf(", %llu, %.4lf", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf(", %llu, %.4lf", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf(", %llu, %.4lf", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
+    printf(", %llu, %.4lf", (unsigned long long)insert_count, insert_slowest / (float64_t)CLOCKS_PER_SEC);
+    printf(", %llu, %.4lf", (unsigned long long)query_count, query_slowest / (float64_t)CLOCKS_PER_SEC);
+    printf(", %llu, %.4lf", (unsigned long long)delete_count, delete_slowest / (float64_t)CLOCKS_PER_SEC);
     printf("\n");
     #endif
 
