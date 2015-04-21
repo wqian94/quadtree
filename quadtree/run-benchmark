@@ -1,7 +1,29 @@
 #/bin/bash
 
-for k in {0..3}
+PARALLEL=""
+NUMA=""
+for i in 64 256 1024 4096 16384 65536 262144 1048576
 do
-    make -B benchmark-naive-O$k CPU_NODE=$k NONUMA=1 TRIALS=3 & disown
-    sleep 1
+    for j in "parallel"
+    do
+        cd ../benchmark
+        if [ $j == "parallel" ]
+        then
+            PARALLEL="PARALLEL=1"
+            NUMA=""
+        else
+            PARALLEL=""
+            NUMA="NONUMA=1"
+        fi
+        make -B $PARALLEL COUNT=$i
+        cd ../quadtree
+        for k in 0 3
+        do
+            if [ $j == "parallel" ] && [ $k -eq 3 ]
+            then
+                continue
+            fi
+            make -B benchmark-$j-O$k $PARALLEL $NUMA TRIALS=5
+        done
+    done
 done

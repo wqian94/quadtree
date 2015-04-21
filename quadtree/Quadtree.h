@@ -289,7 +289,7 @@ static inline bool in_range(Node *n, Point *p) {
  */
 static inline int8_t get_quadrant(Point *origin, Point *p) {
     //return (p->x >= origin->x) + 2 * (p->y >= origin->y);
-    return (p->x >= origin->x) | ((p->y >= origin->y) << 1);
+    return (p->x >= origin->x - PRECISION) | ((p->y >= origin->y - PRECISION) << 1);
 }
 
 /*

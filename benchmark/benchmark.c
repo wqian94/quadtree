@@ -102,18 +102,25 @@ void test_random_n(const uint64_t num_samples) {
             query_count++;
         }
     }
+    #ifdef VERBOSE
     printf("Prepared:\n    %10llu inserts\n    %10llu queries\n    %10llu deletes\n",
         (unsigned long long)insert_count, (unsigned long long)query_count, (unsigned long long)delete_count);
+    #endif
 
+    uint64_t start_time = clock();
     #ifdef PARALLEL
-    printf("Parallel\n");
+        #ifdef VERBOSE
+        printf("Parallel\n");
+        #endif
     #ifdef OMP_NTHREADS
     omp_set_num_threads(OMP_NTHREADS);
     #endif
     #pragma omp parallel for
     for (i = 0; i < num_samples; i++) {
     #else
-    printf("Serial\n");
+        #ifdef VERBOSE
+        printf("Serial\n");
+        #endif
     for (i = 0; i < num_samples; i++) {
         //printf("%llu\n", (unsigned long long)i);
     #endif
@@ -121,6 +128,7 @@ void test_random_n(const uint64_t num_samples) {
         OperationPacket *pkt = packets + i;
         time_samples[i] = execute(q1, pkt, i);
     }
+    uint64_t end_time = clock();
 
     uint64_t insert_slowest = 0, query_slowest = 0, delete_slowest = 0, slowest = 0;
     for (i = 0; i < num_samples; i++) {
@@ -140,7 +148,10 @@ void test_random_n(const uint64_t num_samples) {
     }
     total_cycles = insert_cycles + query_cycles + delete_cycles;
 
+    uint64_t overall_cycles = end_time - start_time;
+
     #ifdef VERBOSE
+    printf("Real time for %10llu operations:   %12.4lf s\n", (unsigned long long)num_samples, overall_cycles / (float64_t)CLOCKS_PER_SEC);
     printf("Total work for %10llu inserts:     %12.4lf s\n", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
     printf("Total work for %10llu queries:     %12.4lf s\n", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
     printf("Total work for %10llu deletes:     %12.4lf s\n", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
@@ -150,14 +161,15 @@ void test_random_n(const uint64_t num_samples) {
     printf("Span of %17llu deletes:     %12.4lf s\n", (unsigned long long)delete_count, delete_slowest / (float64_t)CLOCKS_PER_SEC);
     printf("Span of %17llu operations:  %12.4lf s\n", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
     #else
-    printf("%llu, %.4lf", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.4lf", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.4lf", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.4lf", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.4lf", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.4lf", (unsigned long long)insert_count, insert_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.4lf", (unsigned long long)query_count, query_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf(", %llu, %.4lf", (unsigned long long)delete_count, delete_slowest / (float64_t)CLOCKS_PER_SEC);
+    printf("%llu, %llu, %llu, %llu", (unsigned long long)num_samples, (unsigned long long)CLOCKS_PER_SEC,
+        (unsigned long long)overall_cycles, (unsigned long long)total_cycles);
+    printf(", %llu, %llu", (unsigned long long)insert_count, (unsigned long long)insert_cycles);
+    printf(", %llu, %llu", (unsigned long long)query_count, (unsigned long long)query_cycles);
+    printf(", %llu, %llu", (unsigned long long)delete_count, (unsigned long long)delete_cycles);
+    printf(", %llu, %llu", (unsigned long long)num_samples, (unsigned long long)slowest);
+    printf(", %llu, %llu", (unsigned long long)insert_count, (unsigned long long)insert_slowest);
+    printf(", %llu, %llu", (unsigned long long)query_count, (unsigned long long)query_slowest);
+    printf(", %llu, %llu", (unsigned long long)delete_count, (unsigned long long)delete_slowest);
     printf("\n");
     #endif
 
@@ -184,12 +196,19 @@ int main(int argc, char* argv[]) {
     #ifdef MTRACE
     mtrace();
     #endif
+
     Marsaglia_srand(0);
+
+    #ifdef VERBOSE
     printf("[Beginning tests]\n");
     char testname[128];
     sprintf(testname, "Random %llu test", COUNT);
     start_test(test, testname);
     printf("\n[Ending tests]\n");
+    #else
+    test();
+    #endif
+
     return 0;
 #else
     printf("Need to define at compile time:\n");

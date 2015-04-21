@@ -59,7 +59,7 @@ Quadtree* Quadtree_init(float64_t length, Point center) {
  */
 static inline void Node_free(Node *node) {
     free(node->center);
-    free(node);
+    free((void*)node);
 }
 
 /*

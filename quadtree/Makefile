@@ -131,7 +131,7 @@ benchmark-%:
 	$(MAKE) -e run-benchmark-benchmark OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -$(OFLAG)"
 
 .PHONY: run-benchmark-%
-run-benchmark-%: POSTRUN := | tee benchmarks/results/test-$(OFLAG)-$(NOW).txt
+run-benchmark-%: POSTRUN := | tee -a benchmarks/results/test-$(OFLAG)-$(NOW).txt
 run-benchmark-%: $(OBJS) compile-% %.o
 	mv $* benchmarks/bin/test-$(OFLAG)-$(NOW)
 	-$(RM) benchmarks/bin/test-$(OFLAG)-recent
