@@ -23,7 +23,7 @@ do
             then
                 continue
             fi
-            make -B benchmark-$j-O$k $PARALLEL $NUMA TRIALS=5
+            make -B benchmark-$j-O$k $PARALLEL $NUMA TRIALS=1
         done
     done
 done

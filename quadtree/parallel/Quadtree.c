@@ -448,6 +448,7 @@ bool Quadtree_add_lock(Node *node, Point *p, LockSet *lockset) {
  * Key invariants:
  *     - there should be 3*N nodes in the LockSet, 3 for each level
  *     - every triple should be (parent, child, down square)
+ *     - the appropriate down links are set
  *     - parent must not be a NULL node; child and down can be NULL
  *     - parent and child point to each other if child is not NULL
  *     - if child is NULL, so should down
@@ -464,6 +465,7 @@ bool Quadtree_add_lock(Node *node, Point *p, LockSet *lockset) {
  * Returns whether the lockset is validated, given that we want to insert p.
  */
 bool Quadtree_add_validate(LockSet *lockset, Point *p) {
+    Node *down_p = NULL, *down_c = NULL;
     while(lockset != NULL) {
         Node *parent, *child, *down;
 
@@ -480,6 +482,10 @@ bool Quadtree_add_validate(LockSet *lockset, Point *p) {
 
         // iterating variable incremented
         lockset = lockset->next->next->next;
+
+        // validate down links
+        //if (parent->down != down_p)
+        //    return false;
 
         // validate parent must be valid
         if (!Node_valid(parent))
@@ -523,6 +529,9 @@ bool Quadtree_add_validate(LockSet *lockset, Point *p) {
                         in_range(down->children[i], p))
                     return false;
         }
+
+        down_p = parent;
+        down_c = child;
     }
 
     return true;
@@ -683,7 +692,7 @@ bool Quadtree_add(Quadtree *node, Point p) {
 
         count--;
         if (!count) {  // passed threshold
-            printf("Failed to insert (%lf, %lf); locked = %s, validated = %s\n", p.x, p.y, locked ? "true" : "false", validated ? "true" : "false");
+            //printf("Failed to insert (%lf, %lf); locked = %s, validated = %s\n", p.x, p.y, locked ? "true" : "false", validated ? "true" : "false");
             return false;
         }
     }
