@@ -2,28 +2,45 @@
 
 PARALLEL=""
 NUMA=""
-for i in 64 256 1024 4096 16384 65536 262144 1048576
+TRIALS=5
+OTHER=""
+SUBTYPE=""
+for j in "parallel-one"
+#"naive" "serial" "parallel"
 do
-    for j in "parallel"
+    for i in 64 256 1024 4096 16384 65536 262144 1048576
     do
         cd ../benchmark
+        SUBTYPE=$j
         if [ $j == "parallel" ]
         then
             PARALLEL="PARALLEL=1"
             NUMA=""
+            TRIALS=1
+            OTHER=""
+        elif [ $j == "parallel-one" ]
+        then
+            PARALLEL="PARALLEL=1"
+            NUMA=""
+            TRIALS=5
+            OTHER=" NTHREADS=1"
+            SUBTYPE="parallel"
         else
             PARALLEL=""
             NUMA="NONUMA=1"
+            TRIALS=5
+            OTHER=""
         fi
-        make -B $PARALLEL COUNT=$i
+        make -B $PARALLEL COUNT=$i $OTHER
         cd ../quadtree
         for k in 0 3
         do
-            if [ $j == "parallel" ] && [ $k -eq 3 ]
+            if [ $SUBTYPE == "parallel" ] && [ $k -eq 3 ]
             then
                 continue
             fi
-            make -B benchmark-$j-O$k $PARALLEL $NUMA TRIALS=1
+            make -B benchmark-$SUBTYPE-O$k $PARALLEL $NUMA TRIALS=$TRIALS
         done
     done
+    mv benchmarks/results benchmarks/results-$j
 done
