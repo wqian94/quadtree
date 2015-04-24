@@ -114,6 +114,9 @@ void test_random_n(const uint64_t num_samples) {
         #endif
     #ifdef OMP_NTHREADS
     omp_set_num_threads(OMP_NTHREADS);
+        #ifdef VERBOSE
+        printf("Parallel %llu threads\n", (unsigned long long)OMP_NTHREADS);
+        #endif
     #endif
     #pragma omp parallel for
     for (i = 0; i < num_samples; i++) {
