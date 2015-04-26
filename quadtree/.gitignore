@@ -7,3 +7,4 @@ test-perf
 perf
 gmon.out
 perf.data*
+benchmarks

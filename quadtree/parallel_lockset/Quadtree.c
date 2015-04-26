@@ -60,12 +60,12 @@ void print(Node *n) {
 }
 
 static inline Node* Node_init(float64_t length, Point center) {
-#ifdef QUADTREE_TEST
+    #ifdef QUADTREE_TEST
     if(QUADTREE_NODE_COUNT_MUTEX == NULL) {
         QUADTREE_NODE_COUNT_MUTEX = (pthread_mutex_t*)malloc(sizeof(pthread_mutex_t));
         pthread_mutex_init(QUADTREE_NODE_COUNT_MUTEX, NULL);
     }
-#endif
+    #endif
 
     Node *node = (Node*)malloc(sizeof(*node));
     node->is_square = false;
@@ -80,11 +80,11 @@ static inline Node* Node_init(float64_t length, Point center) {
     node->children[3] = NULL;
     pthread_mutex_init((pthread_mutex_t*)&node->lock, pthread_mutex_attr());
     node->dirty = false;
-#ifdef QUADTREE_TEST
+    #ifdef QUADTREE_TEST
     pthread_mutex_lock(QUADTREE_NODE_COUNT_MUTEX);
     node->id = QUADTREE_NODE_COUNT++;
     pthread_mutex_unlock(QUADTREE_NODE_COUNT_MUTEX);
-#endif
+    #endif
     Point_copy(&center, node->center);
     return node;
 }
@@ -103,9 +103,9 @@ inline Quadtree* Quadtree_init(float64_t length, Point center) {
  * node - the node to be freed
  */
 static inline void Node_free(Node *node) {
-#ifdef PARALLEL
+    #ifdef PARALLEL
     pthread_mutex_destroy((pthread_mutex_t*)&node->lock);
-#endif
+    #endif
     free((void*)node->center);
     free((void*)node);
 }
@@ -127,83 +127,114 @@ static inline bool Node_valid(Node *node) {
 /*
  * struct LockSet_t
  *
- * Compacted data for locking chains
+ * Linked list struct for locking chains.
  *
- * nodelist - the list of nodes we have
- * lockedlist - the list of whether each node is actually locked
- * size - the number of elements we have
+ * node - the node whose lock we've acquired
+ * next - the next LockSet in the list
+ * last - the last LockSet in the list
  */
 typedef volatile struct LockSet_t {
-    Node **nodelist;
-    bool *lockedlist;
-    uint64_t size;
+    Node *node;
+    bool locked;
+    volatile struct LockSet_t *next, *last;
 } LockSet;
 
 /*
  * LockSet_init
  *
- * Macro to create a new LockSet array.
+ * Creates a new LockSet stack, with the first element being node.
  *
- * nl - a reference to the nodelist to use
- * ll - a reference to the lockedlist boolean array to use
+ * node - the first element
+ *
+ * Returns a pointer to the created list.
  */
-LockSet LockSet_init(Node **nl, bool *ll) {
-    return (LockSet){ .nodelist = nl, .lockedlist = ll, .size = 0 };
+static inline LockSet* LockSet_init(Node *node) {
+    LockSet *ls = (LockSet*)malloc(sizeof(LockSet));
+    ls->node = node;
+    ls->locked = false;
+    ls->last = ls;
+    ls->next = NULL;
+    return ls;
+}
+
+/*
+ * LockSet_empty
+ *
+ * Returns an empty LockSet stack. The first insertion will insert the node in-place.
+ */
+static inline LockSet* LockSet_empty() {
+    LockSet *ls = LockSet_init(NULL);
+    ls->last = NULL;
+    return ls;
 }
 
 /*
  * LockSet_lock
  *
- * Acquires a lock on node, and adds a new LockSet element, containing the node. If the
- * node is invalid, it will not be locked.
+ * Acquires a lock on node, and appends a LockSet element to the stack, containing the
+ * node. If the node is invalid, it will not be locked.
  *
- * lockset - the LockSet to add the node to
+ * lockset - the LockSet to append to
  * node - the node to lock on
  */
 static inline void LockSet_lock(LockSet *lockset, Node *node) {
-    Node **location = lockset->nodelist + lockset->size;
-    bool *locked = lockset->lockedlist + lockset->size;
-
+    bool locked = true;
     if (Node_valid(node)) {
-        // deadlock prevention check
-        register uint64_t i;
-        for (i = 0; i < lockset->size; i++)
-            if (lockset->nodelist[i] == node)
+        // do a deadlock prevention check
+        LockSet *ls;
+        for (ls = lockset; ls != NULL; ls = ls->next)
+            if (ls->node == node)
                 break;
-
-        *location = node;
-        *locked = (i == lockset->size);
+        if (ls == NULL) {
+            lock(node);
+        }
+        else
+            locked = false;
     }
-    else {
-        *location = NULL;
-        *locked = false;
+    if (lockset->last == NULL) {  // empty lockset, insert in-place
+        lockset->node = node;
+        lockset->next = NULL;
+        lockset->last = lockset;
     }
-
-    lockset->size++;
+    else {  // to maintain LIFO, need to move data to next node to insert at head
+        LockSet *next = LockSet_init(lockset->node);
+        next->locked = lockset->locked;
+        next->next = lockset->next;
+        next->last = lockset->last;
+        lockset->next = next;
+        lockset->node = node;
+    }
+    lockset->locked = locked;
 }
 
 /*
  * LockSet_unlock
  *
- * Unlocks every node in lockset.
+ * Unlocks every node in lockset, and frees all memory. The input parameter will also be
+ * deallocated.
  *
- * lockset - the LockSet stack to fully unlock
+ * lockset - the LockSet stack to fully unlock and deallocate
  */
 static inline void LockSet_unlock(LockSet *lockset) {
-    uint64_t i;
-    for (i = 0; i < lockset->size; i++)
-        if (lockset->nodelist[i] != NULL && lockset->lockedlist[i])
-            unlock(lockset->nodelist[i]);
-    lockset->size = 0;
+    LockSet *curr;
+    for (curr = lockset; lockset != NULL; curr = lockset) {
+        lockset = lockset->next;
+        if (curr->node != NULL && curr->locked)
+        //if (Node_valid(curr->node) && curr->locked)
+            unlock((curr->node));
+        free((void*)curr);
+    }
 }
 
 void print_LockSet(LockSet *lockset) {
-    uint64_t i;
-    for (i = 0; i < lockset->size; i++) {
-        printf("locked=%s ", lockset->lockedlist[i] ? "true" : "false");
-        print(lockset->nodelist[i]);
+    uint64_t count = 0;
+    while (lockset != NULL) {
+        printf("locked=%s ", lockset->locked ? "true" : "false");
+        print(lockset->node);
+        lockset = lockset->next;
+        count++;
     }
-    printf("Total length: %llu\n", (unsigned long long)lockset->size);
+    printf("Total length: %llu\n", (unsigned long long)count);
 }
 
 /* lock2
@@ -346,64 +377,69 @@ Node* Quadtree_add_find_root(Node *node, Point *p, const uint64_t gap_depth) {
  * Returns true if all locks successful, false if aborted.
  */
 bool Quadtree_add_lock(Node *node, Point *p, LockSet *lockset) {
+    Node *parent = NULL, *child = node;
     do {
-        Node *parent = NULL, *child = node;
+        parent = child;
+        child = child->children[get_quadrant(child->center, p)];
+    } while (Node_valid(child) && child->is_square && in_range(child, p));
+
+    // add parent to lockset
+    LockSet_lock(lockset, parent);
+
+    // add sibling to lockset, or nothing if there is no sibling
+    LockSet_lock(lockset, child);
+
+    // validate parent and child
+    if (!Node_valid(parent))  // parent must be valid
+        return false;
+    // child can be valid or invalid, but if valid, must have correct references
+    if (Node_valid(child) && (
+            parent->children[get_quadrant(parent->center, child->center)] != child ||
+            child->parent != parent) &&
+            !in_range(child, p))
+        return false;
+
+    // acquire appropriate down node
+    if (Node_valid(parent->down) && Node_valid(child)) {
+        Node *down = NULL, *next_down = parent->down;
         do {
-            parent = child;
-            child = child->children[get_quadrant(child->center, p)];
-        } while (Node_valid(child) && child->is_square && in_range(child, p));
+            down = next_down;
+            next_down = down->children[get_quadrant(down->center, p)];
+        } while(Node_valid(next_down) &&
+                next_down->is_square &&
+                in_range(next_down, child->center) &&
+                in_range(next_down, p));
+        LockSet_lock(lockset, down);
 
-        // add parent to lockset
-        LockSet_lock(lockset, parent);
+        // validate down; if fails, aborts and retries
+        if (down->length - child->length < -PRECISION ||
+                !in_range(down, child->center) || !in_range(down, p) ||
 
-        // add sibling to lockset, or nothing if there is no sibling
-        LockSet_lock(lockset, child);
-
-        // validate parent and child
-        if (!Node_valid(parent))  // parent must be valid
-            {printf("%d\n", __LINE__);return false;}
-
-        // child can be valid or invalid, but if valid, must have correct references
-        if (Node_valid(child) && (
-                parent->children[get_quadrant(parent->center, child->center)] != child ||
-                child->parent != parent) &&
-                !in_range(child, p))
-            {printf("%d\n", __LINE__);return false;}
-
-        // acquire appropriate down node
-        if (Node_valid(parent->down) && Node_valid(child)) {
-            Node *down = NULL, *next_down = parent->down;
-            do {
-                down = next_down;
-                next_down = down->children[get_quadrant(down->center, p)];
-            } while(Node_valid(next_down) &&
-                    next_down->is_square &&
-                    in_range(next_down, child->center) &&
-                    in_range(next_down, p));
-            LockSet_lock(lockset, down);
-
-            // validate down; if fails, aborts and retries
-            if (down->length - child->length < -PRECISION ||
-                    !in_range(down, child->center) || !in_range(down, p) ||
-
-                    // this checks to see if down is the tightest square possible
-                    Node_valid(down->parent) &&  // exclude the root
-                    Node_valid(next_down) &&
-                    next_down->is_square &&
-                    in_range(next_down, child->center) &&
-                    in_range(next_down, p) &&
-                    get_quadrant(down->center, child->center) ==
-                    get_quadrant(down->center, p)) {
-                {printf("%d\n", __LINE__);return false;}
-            }
+                // this checks to see if down is the tightest square possible
+                Node_valid(down->parent) &&  // exclude the root
+                Node_valid(next_down) &&
+                next_down->is_square &&
+                in_range(next_down, child->center) &&
+                in_range(next_down, p) &&
+                get_quadrant(down->center, child->center) ==
+                get_quadrant(down->center, p)) {
+            /*printf("Balls\n");
+            print(down);
+            print(next_down);
+            printf("(%lf, %lf) (%lf, %lf)\n", child->center->x, child->center->y, p->x, p->y);
+            printf("\n");*/
+            /*lockset->node = NULL;
+            unlock(down);
+            down = NULL;*/
+            return false;
         }
-        else
-            LockSet_lock(lockset, NULL);  // placeholder
+    }
+    else
+        LockSet_lock(lockset, NULL);  // placeholder
 
-        // now, recurse on parent's down if available
-        node = parent->down;
-    } while (Node_valid(node));
-
+    // now, recurse on parent's down if available
+    if (Node_valid(parent->down))
+        return Quadtree_add_lock(parent->down, p, lockset);
     return true;
 }
 
@@ -415,7 +451,6 @@ bool Quadtree_add_lock(Node *node, Point *p, LockSet *lockset) {
  *     - there should be 3*N nodes in the LockSet, 3 for each level
  *     - every triple should be (parent, child, down square)
  *     - the appropriate down links are set
- *     - child is not a point node representing the same point as p; this is duplication
  *     - parent must not be a NULL node; child and down can be NULL
  *     - parent and child point to each other if child is not NULL
  *     - if child is NULL, so should down
@@ -433,30 +468,33 @@ bool Quadtree_add_lock(Node *node, Point *p, LockSet *lockset) {
  */
 bool Quadtree_add_validate(LockSet *lockset, Point *p) {
     Node *down_p = NULL, *down_c = NULL;
-    uint64_t index;
-    for (index = 0; index < lockset->size; index += 3) {
+    while(lockset != NULL) {
         Node *parent, *child, *down;
 
         // set parent, child, down
-        down = lockset->nodelist[lockset->size - index - 1];
-        child = lockset->nodelist[lockset->size - index - 2];
-        parent = lockset->nodelist[lockset->size - index - 3];
+        down = lockset->node;
+        if (lockset->next == NULL)
+            return false;
+
+        child = lockset->next->node;
+        if (lockset->next->next == NULL)
+            return false;
+
+        parent = lockset->next->next->node;
+
+        // iterating variable incremented
+        lockset = lockset->next->next->next;
 
         // validate down links
-        if (parent->down != down_p)
-            return false;
-
-        // validate non-duplication
-        if (Node_valid(child) && !child->is_square && Point_equals(child->center, p))
-            return false;
+        //if (parent->down != down_p)
+        //    return false;
 
         // validate parent must be valid
         if (!Node_valid(parent))
             return false;
 
         // validate parent and child point to each other
-        if (Node_valid(parent->children[get_quadrant(parent->center, p)]) &&
-                parent->children[get_quadrant(parent->center, p)] != child ||
+        if (parent->children[get_quadrant(parent->center, p)] != child ||
                 Node_valid(child) && child->parent != parent)
             return false;
 
@@ -486,7 +524,7 @@ bool Quadtree_add_validate(LockSet *lockset, Point *p) {
 
         // validate that none of down's children can contain both child and p
         if (Node_valid(down)) {
-            uint8_t i;
+            int i;
             for (i = 0; i < 4; i++)
                 if (Node_valid(down->children[i]) &&
                         in_range(down->children[i], child->center) &&
@@ -521,12 +559,13 @@ bool Quadtree_add_validate(LockSet *lockset, Point *p) {
  */
 Node* Quadtree_add_helper(LockSet *lockset, Point *p) {
     Node *down = NULL, *node = NULL, *new_down_square = NULL;
-    uint64_t index;
-    for (index = 0; index < lockset->size; index += 3) {
-        // set parent, child, down
-        Node *down_square   = lockset->nodelist[lockset->size - index - 1],
-             *child         = lockset->nodelist[lockset->size - index - 2],
-             *parent        = lockset->nodelist[lockset->size - index - 3];
+    while (lockset != NULL) {
+        Node *parent = lockset->next->next->node,
+             *child = lockset->next->node,
+             *down_square = lockset->node;
+
+        // iterate our iterator along
+        lockset = lockset->next->next->next;
 
         // set up the new node
         node = Node_init(0, *p);
@@ -600,36 +639,34 @@ bool Quadtree_add(Quadtree *node, Point p) {
     if (!Node_valid(node))
         return false;
 
-#ifndef QUADTREE_TEST
+    #ifndef QUADTREE_TEST
     uint32_t mseed = Marsaglia_seed + (uint32_t)clock() + (uint32_t)pthread_self();
     mseed = rand();
     uint32_t try = mseed & 0xF;
     uint32_t mask = ~0 << try;
     mseed = (mseed >> try) | ((mseed & ~mask) << try);
-#endif
+    #endif
 
-    register uint64_t insert_levels = 0;
     while (false && rand() % 100 < 50) {
         if (!Node_valid(node->up)) {
-#ifdef PARALLEL
+            #ifdef PARALLEL
             lock(node);
             Node *new_up;
             if (!Node_valid(node->up)) {
-#endif
+            #endif
                 new_up = Quadtree_init(node->length, *node->center);
                 new_up->down = node;
                 node->up = new_up;
-#ifdef PARALLEL
+            #ifdef PARALLEL
             }
             else
                 new_up = node->up;
             unlock(node);
-#endif
+            #endif
             node = new_up;
         }
         else
             node = node->up;
-        insert_levels++;
     }
     
     register uint64_t gap_depth = 0;  // number of layers to ignore when inserting
@@ -639,23 +676,21 @@ bool Quadtree_add(Quadtree *node, Point p) {
         node = node->up;
     }
 
-    const uint64_t lockset_length = 3 * insert_levels;  // 3: parent, child, and potential down
-    Node *nodelist[lockset_length];
-    bool lockedlist[lockset_length];
-    LockSet lockset = LockSet_init(nodelist, lockedlist);
-
     Node *root;
+    LockSet *lockset;
     register uint64_t count = 10;
     while (count) {
         root = Quadtree_add_find_root(node, &p, gap_depth);
 
+        lockset = LockSet_empty();  // initialize as empty
+
         bool locked = false, validated = false;
-        if (locked = Quadtree_add_lock(root, &p, &lockset)) {
-            if (validated = Quadtree_add_validate(&lockset, &p))
+        if (locked = Quadtree_add_lock(root, &p, lockset)) {
+            if (validated = Quadtree_add_validate(lockset, &p))
                 break;  // validated!
         }
 
-        LockSet_unlock(&lockset);  // retry
+        LockSet_unlock(lockset);  // retry
 
         count--;
         if (!count) {  // passed threshold
@@ -664,8 +699,8 @@ bool Quadtree_add(Quadtree *node, Point p) {
         }
     }
 
-    Node *new_node = Quadtree_add_helper(&lockset, &p);
-    LockSet_unlock(&lockset);
+    Node *new_node = Quadtree_add_helper(lockset, &p);
+    LockSet_unlock(lockset);
     return new_node != NULL;
 }
 
@@ -749,6 +784,51 @@ bool Quadtree_remove_node(Node *node) {
     return true;
 }
 
+/*
+ * Quadtree_remove_helper
+ *
+ * Recursive helper function to remove nodes. Removal starts at highest-level occurance
+ * and progresses downward.
+ *
+ * node - the node to start at
+ * p - the point to remove
+ *
+ * Returns true if the node was successfully removed, false if not.
+ */
+/*bool Quadtree_remove_helper(Node *node, Point *p) {
+    if (!in_range(node, p))
+        return false;
+
+    register uint8_t quadrant = get_quadrant(node->center, p);
+
+    // if the target child is NULL, we try to drop down a level
+    if (!Node_valid(node->children[quadrant])) {
+        if (Node_valid(node->down))
+            return Quadtree_remove_helper(node->down, p);
+        // otherwise, we're on the bottom-most level and just can't find the point
+        else
+            return false;
+    }
+
+    // here, the child exists
+
+    // if is a square, move to it and recurse if in range
+    if (node->children[quadrant]->is_square && in_range(node->children[quadrant], p))
+        return Quadtree_remove_helper(node->children[quadrant], p);
+
+    // otherwise, we check if the child point matches, since it's a point node
+    if (Point_equals(node->children[quadrant]->center, p))
+        return Quadtree_remove_node(node->children[quadrant]);
+
+    // if we're here, then we need to branch down a level
+    if (Node_valid(node->down))
+        return Quadtree_remove_helper(node->down, p);
+
+    // here, we have nowhere else to search for, so we give up
+    return false;
+ 
+}*/
+
 bool Quadtree_remove_lock(Node *node, Point *p, LockSet *lockset) {
     Node *parent = NULL;
     while (Node_valid(node)) {
@@ -769,6 +849,10 @@ bool Quadtree_remove_lock(Node *node, Point *p, LockSet *lockset) {
                     LockSet_lock(lockset, parent->parent);
                     LockSet_lock(lockset, parent);
                     LockSet_lock(lockset, node);
+                    /*print(parent->parent);
+                    print(parent);
+                    print(node);
+                    puts("");*/
                     
                     Node *child = NULL;
                     // only look for child if parent is not root
@@ -826,14 +910,20 @@ bool Quadtree_remove_lock(Node *node, Point *p, LockSet *lockset) {
  * Returns whether the lockset passes validation.
  */
 bool Quadtree_remove_validate(LockSet *lockset, Point *p) {
+    // empty lockset -> node not found
+    if (lockset->last == NULL)
+        return true;
+
     // starts off at first level, should be NULL
     Node *down_pp = NULL, *down_p = NULL, *down_n = NULL, *down_c = NULL;
-    uint64_t index;
-    for (index = 0; index < lockset->size; index += 4) {
-        Node *pparent = lockset->nodelist[lockset->size - index - 4],
-             *parent  = lockset->nodelist[lockset->size - index - 3],
-             *node    = lockset->nodelist[lockset->size - index - 2],
-             *child   = lockset->nodelist[lockset->size - index - 1];
+    while (lockset != NULL) {
+        Node *pparent = lockset->next->next->next->node,
+             *parent = lockset->next->next->node,
+             *node = lockset->next->node,
+             *child = lockset->node;
+
+        // iterate
+        lockset = lockset->next->next->next->next;
 
         // check tuple order and pointers
         if (Node_valid(pparent) && (pparent->children[get_quadrant(pparent->center, parent->center)] != parent ||
@@ -876,51 +966,51 @@ bool Quadtree_remove_validate(LockSet *lockset, Point *p) {
 }
 
 bool Quadtree_remove_helper(LockSet *lockset) {
-    // iterate removal
-    uint64_t index;
-    for (index = 0; index < lockset->size; index += 4) {
-        Node *pparent = lockset->nodelist[index],
-             *parent  = lockset->nodelist[index + 1],
-             *node    = lockset->nodelist[index + 2],
-             *child   = lockset->nodelist[index + 3];
- 
-            node->dirty = true;
+    // empty lockset
+    if (lockset->last == NULL)
+        return false;
 
-            // if need to delete parent, also do that now
-            if (Node_valid(child)) {
-                pparent->children[get_quadrant(pparent->center, parent->center)] = child;
-                child->parent = pparent;
-                parent->dirty = true;
-            }
+    Node *pparent = lockset->next->next->next->node,
+         *parent = lockset->next->next->node,
+         *node = lockset->next->node,
+         *child = lockset->node;
+
+    // recurse to top level first
+    LockSet *next_set = lockset->next->next->next->next;
+    if (next_set != NULL && !Quadtree_remove_helper(next_set))
+        return false;
+
+    node->dirty = true;
+
+    // if need to delete parent, also do that now
+    if (Node_valid(child)) {
+        pparent->children[get_quadrant(pparent->center, parent->center)] = child;
+        child->parent = pparent;
+        parent->dirty = true;
     }
 
     return true;
 }
 
 bool Quadtree_remove(Quadtree *node, Point p) {
-    uint64_t levels = 0;
-    while (Node_valid(node->up)) {
+    while (Node_valid(node->up))
         node = node->up;
-        levels++;
-    }
 
-    const uint64_t lockset_length = 4 * levels;  // 4: parent-parent, parent, node, and child (sibling)
-    Node *nodelist[lockset_length];
-    bool lockedlist[lockset_length];
-    LockSet lockset = LockSet_init(nodelist, lockedlist);
-
+    LockSet *lockset;
     register uint64_t count = 10;
     while (count) {
         Node *root = node;
 
+        lockset = LockSet_empty();
+
         bool locked = false, validated = false;
-        if (locked = Quadtree_remove_lock(root, &p, &lockset)) {
-            if (validated = Quadtree_remove_validate(&lockset, &p)) {
+        if (locked = Quadtree_remove_lock(root, &p, lockset)) {
+            if (validated = Quadtree_remove_validate(lockset, &p)) {
                 break;
             }
         }
 
-        LockSet_unlock(&lockset);
+        LockSet_unlock(lockset);
 
         count--;
 
@@ -930,8 +1020,9 @@ bool Quadtree_remove(Quadtree *node, Point p) {
         }
     }
 
-    bool result = Quadtree_remove_helper(&lockset);
-    LockSet_unlock(&lockset);
+    //bool result = Quadtree_remove_helper(node, &p);
+    bool result = Quadtree_remove_helper(lockset);
+    LockSet_unlock(lockset);
     return result;
 }
 
