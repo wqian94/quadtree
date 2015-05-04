@@ -107,7 +107,8 @@ void test_random_n(const uint64_t num_samples) {
         (unsigned long long)insert_count, (unsigned long long)query_count, (unsigned long long)delete_count);
 #endif
 
-    uint64_t start_time = clock();
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
     uint64_t nthreads = 1;
 #ifdef PARALLEL
 #ifdef OMP_NTHREADS
@@ -151,10 +152,12 @@ void test_random_n(const uint64_t num_samples) {
     }
     total_cycles = insert_cycles + query_cycles + delete_cycles;*/
 
-    uint64_t overall_cycles = end_time - start_time;
+    gettimeofday(&end, NULL);
+    int64_t seconds = end.tv_sec - start.tv_sec;
+    int64_t microseconds = end.tv_usec - start.tv_usec;
 
 #ifdef VERBOSE
-    printf("Real time for       %10llu operations:  %12.4lf s\n", (unsigned long long)num_samples, overall_cycles / (float64_t)CLOCKS_PER_SEC);
+    printf("Real time for       %10llu operations:  %12.4lf s\n", (unsigned long long)num_samples, seconds + microseconds * 1e-6);
     printf("Number of inserts:  %10llu\n", (unsigned long long)insert_count);
     printf("Number of queries:  %10llu\n", (unsigned long long)query_count);
     printf("Number of deletes:  %10llu\n", (unsigned long long)delete_count);
@@ -170,7 +173,8 @@ void test_random_n(const uint64_t num_samples) {
     printf("Span of %17llu operations:  %12.4lf s\n", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
     */
 #else
-    printf("%llu, %lf", (unsigned long long)num_samples, overall_cycles / (float64_t)CLOCKS_PER_SEC),
+    printf("%llu, %lf, %llu, %llu, %llu", (unsigned long long)num_samples, seconds + microseconds * 1e-6,
+        (unsigned long long)insert_count, (unsigned long long)query_count, (unsigned long long)delete_count);
     /*
     printf("%llu, %llu, %llu, %llu", (unsigned long long)num_samples, (unsigned long long)CLOCKS_PER_SEC,
         (unsigned long long)overall_cycles, (unsigned long long)total_cycles);

@@ -21,9 +21,10 @@ TEST_HEADERS := \
 OBJS_naive := naive/Point.o naive/Quadtree.o
 OBJS_serial := serial/Point.o serial/Quadtree.o
 OBJS_parallel_naive := parallel_naive/Point.o parallel_naive/Quadtree.o
-OBJS_parallel := parallel/Point.o parallel/Quadtree.o
+OBJS_parallel := parallel/Point.o parallel/Quadtree.o mutex.o
 
 .PRECIOUS: parallel/Quadtree.o
+.PRECIOUS: benchmark.o
 
 # to turn on compiling in parallel
 ifdef PARALLEL
@@ -139,7 +140,8 @@ run-benchmark-%: $(OBJS) compile-% %.o
 	mv $* benchmarks/bin/test-$(OFLAG)-$(NOW)
 	-$(RM) benchmarks/bin/test-$(OFLAG)-recent
 	ln benchmarks/bin/test-$(OFLAG)-$(NOW) benchmarks/bin/test-$(OFLAG)-recent
-	for i in {1..$(TRIALS)};do $(PRERUN) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);done
+	touch benchmarks/results/test-$(OFLAG)-$(NOW).txt
+	targetlines=$$(expr $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') + $(TRIALS));while [ $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') -lt $$targetlines ];do $(PRERUN) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);done
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o

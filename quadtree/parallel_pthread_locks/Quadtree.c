@@ -11,7 +11,6 @@ Naive parallel implementation of compressed skip quadtree with pthreads
 #include "../types.h"
 #include "../Quadtree.h"
 #include "../Point.h"
-#include "../mutex.h"
 
 // rand() functions
 #ifdef QUADTREE_TEST
@@ -31,12 +30,16 @@ pthread_mutex_t *QUADTREE_NODE_COUNT_MUTEX = NULL;
 #endif
 
 // macros for parallelism
+#ifndef trylock
+#define trylock(x) pthread_mutex_trylock((pthread_mutex_t*)&x->lock)
+#endif
+
 #ifndef lock
-#define lock(x) Mutex_lock((Mutex*)&x->lock);
+#define lock(x) pthread_mutex_lock((pthread_mutex_t*)&x->lock);
 #endif
 
 #ifndef unlock
-#define unlock(x) Mutex_unlock((Mutex*)&x->lock);
+#define unlock(x) pthread_mutex_unlock((pthread_mutex_t*)&x->lock);
 #endif
 
 #define min_node(x, y) ((long)y ^ (((long)x ^ (long)y) & -(x < y)))
@@ -50,7 +53,7 @@ void print(Node *n) {
     if (n == NULL)
         printf("NULL\n");
     else
-        printf("pointer = %p, is_square = %s, center = (%.6lf, %.6lf), length = %llu, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}, dirty = %s, id = %llu, lock = %p\n", n, n->is_square ? "true" : "false", n->center.x, n->center.y, (unsigned long long)n->length,
+        printf("pointer = %p, is_square = %s, center = (%.6lf, %.6lf), length = %llu, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}, dirty = %s, id = %llu\n", n, n->is_square ? "true" : "false", n->center.x, n->center.y, (unsigned long long)n->length,
             !Node_valid(n->parent) ? NULL : n->parent,
             !Node_valid(n->up) ? NULL : n->up,
             !Node_valid(n->down) ? NULL : n->down,
@@ -58,8 +61,7 @@ void print(Node *n) {
             !Node_valid(n->children[1]) ? NULL : n->children[1],
             !Node_valid(n->children[2]) ? NULL : n->children[2],
             !Node_valid(n->children[3]) ? NULL : n->children[3],
-            n->dirty ? "true" : "false", (unsigned long long)n->id,
-            &n->lock);
+            n->dirty ? "true" : "false", (unsigned long long)n->id);
 }
 
 static inline Node* Node_init(float64_t length, Point center) {
@@ -81,7 +83,7 @@ static inline Node* Node_init(float64_t length, Point center) {
     node->children[1] = NULL;
     node->children[2] = NULL;
     node->children[3] = NULL;
-    Mutex_init((Mutex*)&node->lock);
+    pthread_mutex_init((pthread_mutex_t*)&node->lock, pthread_mutex_attr());
     node->dirty = false;
 #ifdef QUADTREE_TEST
     pthread_mutex_lock(QUADTREE_NODE_COUNT_MUTEX);
@@ -171,9 +173,6 @@ static inline void LockSet_lock(LockSet *lockset, Node *node) {
         for (i = 0; i < lockset->size; i++)
             if (lockset->nodelist[i] == node)
                 break;
-
-        if (i == lockset->size)
-            lock(node);
 
         *location = node;
         *locked = (i == lockset->size);
@@ -990,7 +989,7 @@ bool Quadtree_free_helper(Node *node, QuadtreeFreeResult *result) {
     }
 
     // should no longer have references
-    //Node_free(node);
+    Node_free(node);
 
     return success;
 }

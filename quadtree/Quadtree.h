@@ -12,6 +12,7 @@ Interface for Quadtree data structure
 #include "./util.h"
 #include "./types.h"
 #include "./Point.h"
+#include "./mutex.h"
 
 #ifndef PARALLEL
 typedef struct SerialSkipQuadtreeNode_t Node;
@@ -65,14 +66,14 @@ typedef volatile struct ParallelSkipQuadtreeNode_t Node;
  */
 struct ParallelSkipQuadtreeNode_t {
     bool is_square;
-    Point *center;
+    Point center;
     float64_t length;
     Node *parent;
     Node *up, *down;
     Node *children[4];
     volatile bool dirty;
-    volatile pthread_mutex_t lock;
-    //pthread_rwlock_t lock;
+    //volatile pthread_mutex_t lock;
+    volatile Mutex lock;
     uint64_t id;
 };
 #endif
@@ -271,10 +272,17 @@ static inline bool in_range(Node *n, Point *p) {
         n->center->y + n->length / 2 > p->y;*/
     register float64_t bound = n->length * 0.5;
     return
+#ifndef PARALLEL
         (n->center->x - bound <= p->x) &&
         (n->center->x + bound > p->x) &&
         (n->center->y - bound <= p->y) &&
         (n->center->y + bound > p->y);
+#else
+        (n->center.x - bound <= p->x) &&
+        (n->center.x + bound > p->x) &&
+        (n->center.y - bound <= p->y) &&
+        (n->center.y + bound > p->y);
+#endif
 }
 
 /*
@@ -307,8 +315,13 @@ static inline Point get_new_center(Node *node, int8_t quadrant) {
     return (Point){
         /*.x = node->center->x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
         .y = node->center->y + ((quadrant * 0.5) - 0.5) * 0.5 * node->length*/
+#ifndef PARALLEL
         .x = node->center->x + ((quadrant & 1) - 0.5) * 0.5 * node->length,
         .y = node->center->y + ((quadrant & 2) - 1) * 0.25 * node->length
+#else
+        .x = node->center.x + ((quadrant & 1) - 0.5) * 0.5 * node->length,
+        .y = node->center.y + ((quadrant & 2) - 1) * 0.25 * node->length
+#endif
         };
 }
 

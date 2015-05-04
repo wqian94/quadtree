@@ -8,7 +8,7 @@ Benchmarking suite utilities header
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/syscall.h>
+#include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 

@@ -1,46 +1,48 @@
-#/bin/bash
+#!/bin/bash
 
 PARALLEL=""
 NUMA=""
 TRIALS=5
 OTHER=""
 SUBTYPE=""
-for j in "parallel-one"
-#"naive" "serial" "parallel"
+
+function run {
+    SUBTYPE=$1
+    PARALLEL=$2
+    COUNT=$3
+    NUMA=$4
+    NTHREADS=$5
+    for k in 0 3
+    do
+        cd ../benchmark
+        if [ "$NTHREADS" == "" ]
+        then
+            make -B $PARALLEL COUNT=$COUNT
+            TARGET=benchmarks/results-$SUBTYPE-O$k
+        else
+            make -B $PARALLEL COUNT=$COUNT NTHREADS=$NTHREADS
+            TARGET=benchmarks/results-$SUBTYPE-O$k-$NTHREADS
+        fi
+        cd ../quadtree
+        make -B benchmark-$SUBTYPE-O$k $PARALLEL $NUMA TRIALS=5
+        mkdir -p $TARGET
+        mv benchmarks/results/* $TARGET
+    done
+}
+
+for j in "naive" "serial" "parallel"
 do
     for i in 64 256 1024 4096 16384 65536 262144 1048576
     do
-        cd ../benchmark
         SUBTYPE=$j
         if [ $j == "parallel" ]
         then
-            PARALLEL="PARALLEL=1"
-            NUMA=""
-            TRIALS=1
-            OTHER=""
-        elif [ $j == "parallel-one" ]
-        then
-            PARALLEL="PARALLEL=1"
-            NUMA=""
-            TRIALS=5
-            OTHER=" NTHREADS=1"
-            SUBTYPE="parallel"
+            for k in 1 2 4 8 16 32 64 80 128
+            do
+                run $j "PARALLEL=1" $i "" $k
+            done
         else
-            PARALLEL=""
-            NUMA="NONUMA=1"
-            TRIALS=5
-            OTHER=""
+            run $j "" $i "NONUMA=1" ""
         fi
-        make -B $PARALLEL COUNT=$i $OTHER
-        cd ../quadtree
-        for k in 0 3
-        do
-            if [ $SUBTYPE == "parallel" ] && [ $k -eq 3 ]
-            then
-                continue
-            fi
-            make -B benchmark-$SUBTYPE-O$k $PARALLEL $NUMA TRIALS=$TRIALS
-        done
     done
-    mv benchmarks/results benchmarks/results-$j
 done
