@@ -1,0 +1,46 @@
+#!/bin/bash
+
+PARALLEL=""
+NUMA=""
+TRIALS=5
+OTHER=""
+SUBTYPE=""
+TIME=10
+
+function run {
+    PARALLEL="PARALLEL=1"
+    SUBTYPE=$1
+    NTHREADS=$2
+    WRATIO=$3
+    INITIAL=$4
+
+    cd ../benchmark
+    make -B $PARALLEL TIME=$TIME WRATIO=$WRATIO NTHREADS=$NTHREADS INITIAL=$INITIAL
+    TARGET=benchmarks/benchmark-results/initial-$INITIAL/wratio-$WRATIO/$SUBTYPE-O3/threads-$NTHREADS
+    cd ../quadtree
+    if [ "$SUBTYPE" == "parallel_tm" ] || [ "$SUBTYPE" == "parallel_tm_cqt" ]
+    then
+        PARALLEL=""
+    fi
+
+    echo -e "\nNow running $SUBTYPE, $NTHREADS thread(s), WRATIO=$WRATIO, INITIAL=$INITIAL\n"
+
+    make -B benchmark-$SUBTYPE-O3 $PARALLEL TRIALS=5 NTHREADS=$NTHREADS
+    mkdir -p $TARGET
+    mv benchmarks/results/* $TARGET
+}
+
+for i in 1000000 10000000
+do
+    for j in 0 0.01 0.1
+    do
+        for k in {1..16}
+        do
+            #for m in "parallel_cqt" "parallel_tm_cqt"
+            for m in "parallel"
+            do
+                run $m $k $j $i
+            done
+        done
+    done
+done

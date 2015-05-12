@@ -25,7 +25,7 @@ extern void Marsaglia_srand(uint32_t);
 uint64_t QUADTREE_NODE_COUNT = 0;
 #endif
 
-Node* Node_init(float64_t length, Point center) {
+safe Node* Node_init(float64_t length, Point center) {
     Node *node = (Node*)malloc(sizeof(Node));
     node->is_square = false;
     node->length = length;
@@ -57,7 +57,7 @@ Quadtree* Quadtree_init(float64_t length, Point center) {
  * node - the node to be freed
  */
 static inline void Node_free(Node *node) {
-    free((void*)node);
+    free(node);
 }
 
 /*
@@ -72,7 +72,7 @@ static inline void Node_free(Node *node) {
  *
  * Returns whether p is in node.
  */
-bool Quadtree_search_helper(Node *node, Point *p) {
+safe bool Quadtree_search_helper(Node *node, Point *p) {
     if (!in_range(node, p))
         return false;
 
@@ -105,14 +105,16 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     return false;
 }
 
-bool Quadtree_search(Quadtree *node, Point p) {
-    if (node == NULL)
-        return false;
+safe bool Quadtree_search(Quadtree *node, Point p) {
+    __transaction_atomic {
+        if (node == NULL)
+            return false;
 
-    while (node->up != NULL)
-        node = node->up;
+        while (node->up != NULL)
+            node = node->up;
 
-    return Quadtree_search_helper(node, &p);
+        return Quadtree_search_helper(node, &p);
+    }
 }
 
 /*
@@ -131,7 +133,7 @@ bool Quadtree_search(Quadtree *node, Point p) {
  *
  * Returns the corresponding node, one level lower, or NULL if the action failed.
  */
-Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
+safe Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     if (!in_range(node, p))
         return NULL;
 
@@ -214,25 +216,11 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     return new_node;
 }
 
-bool Quadtree_add(Quadtree *node, Point p) {
-    while (rand() % 100 < 50) {
-        if (node->up == NULL) {
-            node->up = Quadtree_init(node->length, node->center);
-            node->up->down = node;
-        }
-        node = node->up;
+safe bool Quadtree_add(Quadtree *node, Point p) {
+    __transaction_atomic {
+        return Quadtree_add_helper(node, &p, 0) != NULL;
     }
-    
-    register uint64_t gap_depth = 0;  // number of layers to ignore when inserting
-
-    while (node->up != NULL) {
-        gap_depth++;
-        node = node->up;
-    }
-
-    return Quadtree_add_helper(node, &p, gap_depth) != NULL;
 }
-
 /*
  * Quadtree_remove_node
  *
@@ -245,7 +233,7 @@ bool Quadtree_add(Quadtree *node, Point p) {
  *
  * Returns true if removal is successful, false otherwise.
  */
-bool Quadtree_remove_node(Node *node) {
+safe bool Quadtree_remove_node(Node *node) {
     if (node->down == NULL && node->parent == NULL)
         return false;
 
@@ -327,7 +315,7 @@ bool Quadtree_remove_node(Node *node) {
  *
  * Returns true if the node was successfully removed, false if not.
  */
-bool Quadtree_remove_helper(Node *node, Point *p) {
+safe bool Quadtree_remove_helper(Node *node, Point *p) {
     if (!in_range(node, p))
         return false;
 
@@ -361,11 +349,10 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
  
 }
 
-bool Quadtree_remove(Quadtree *node, Point p) {
-    while (node->up != NULL)
-        node = node->up;
-
-    return Quadtree_remove_helper(node, &p);
+safe bool Quadtree_remove(Quadtree *node, Point p) {
+    __transaction_atomic {
+        return Quadtree_remove_helper(node, &p);
+    }
 }
 
 /*

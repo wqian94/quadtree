@@ -3,10 +3,10 @@ export
 SHELL := /bin/bash
 
 CC := gcc
-CFLAGS := -std=gnu99 -g -fopenmp -Werror
+CFLAGS := -std=gnu99 -g -Werror -fgnu-tm
 RM := rm -f
 CPU_NODE := 0
-NOW := $(shell date -u +%s)
+NOW := $(shell date -u +%s%N)
 
 HEADERS := \
 	util.h \
@@ -18,17 +18,25 @@ TEST_HEADERS := \
 	test.h \
 	assertions.h
 
-OBJS_naive := naive/Point.o naive/Quadtree.o
-OBJS_serial := serial/Point.o serial/Quadtree.o
-OBJS_parallel_naive := parallel_naive/Point.o parallel_naive/Quadtree.o
-OBJS_parallel := parallel/Point.o parallel/Quadtree.o mutex.o
+ALL_OBJS := Point.o util.o mutex.o
 
-.PRECIOUS: parallel/Quadtree.o
 .PRECIOUS: benchmark.o
+
+# for thread counts
+NTHREADS ?= 1
+
+# for HTM
+ITM ?= rh_htm_gl_wt
+HTM_LIB ?= /home/qian/quadtree/quadtree/libitm.so
+TC_MALLOC ?= /home/qian/quadtree/quadtree/libtcmalloc.so
+TM_PRELOAD := export ITM_DEFAULT_METHOD=$(ITM);export LD_PRELOAD=$(HTM_LIB):$(TC_MALLOC):$$$$LD_PRELOAD;
+
+# for toggling whether to run
+RUN ?= 1
 
 # to turn on compiling in parallel
 ifdef PARALLEL
-CCFLAGS += -DPARALLEL
+CCFLAGS += -DPARALLEL -pthread -lpthread
 endif
 
 # for no NUMA
@@ -59,9 +67,9 @@ ifdef DEBUG
 CCFLAGS += -DDEBUG
 endif
 
-# for pthreads
-ifdef PTHREAD
-CCFLAGS += -pthread -lpthread
+# for dimensions
+ifdef DIMENSIONS
+CCFLAGS += -DDIMENSIONS=$(DIMENSIONS)
 endif
 
 # for OFLAG in benchmarking
@@ -100,13 +108,13 @@ main-%:
 test-%-correctness: CFLAGS += -O0
 test-%-correctness: TESTFLAG += -DQUADTREE_TEST
 test-%-correctness:
-	$(MAKE) -e run-test OBJS="$(OBJS_$*)" MTRACE=1 DEBUG=1
+	$(MAKE) -e run-test OBJS="$(ALL_OBJS) $*/Quadtree.o" MTRACE=1 DEBUG=1
 
 .PHONY: test-%-performance
 test-%-performance: CFLAGS += -O0
 test-%-performance: TESTFLAG += -DVERBOSE
 test-%-performance:
-	$(MAKE) -e run-test_perf OBJS="$(OBJS_$*)" GPROF=1
+	$(MAKE) -e run-test_perf OBJS="$(ALL_OBJTS) $*/Quadtree.o" GPROF=1
 
 .PHONY: test-%
 test-%:
@@ -132,16 +140,19 @@ benchmark-%-O3:
 .PHONY: benchmark-%
 benchmark-%:
 	mkdir -p benchmarks/bin benchmarks/results
-	$(MAKE) -e run-benchmark-benchmark OBJS="$(OBJS_$*)" CFLAGS="$(CFLAGS) -$(OFLAG)"
+	$(MAKE) -e run-benchmark-benchmark OBJS="$(ALL_OBJS) $*/Quadtree.o" CFLAGS="$(CFLAGS) -$(OFLAG)"
 
 .PHONY: run-benchmark-%
-run-benchmark-%: POSTRUN := | tee -a benchmarks/results/test-$(OFLAG)-$(NOW).txt
+run-benchmark-%: PRERUN += export NANOSECONDS=`date +%N`;
+run-benchmark-%: POSTRUN := | tee benchmarks/results/test-$(OFLAG)-$(NOW)-$$NANOSECONDS.txt;cat benchmarks/results/test-$(OFLAG)-$(NOW)-$$NANOSECONDS.txt | head -n 1 >> benchmarks/results/test-$(OFLAG)-$(NOW).txt;rm benchmarks/results/test-$(OFLAG)-$(NOW)-$$NANOSECONDS.txt
 run-benchmark-%: $(OBJS) compile-% %.o
 	mv $* benchmarks/bin/test-$(OFLAG)-$(NOW)
 	-$(RM) benchmarks/bin/test-$(OFLAG)-recent
 	ln benchmarks/bin/test-$(OFLAG)-$(NOW) benchmarks/bin/test-$(OFLAG)-recent
+ifeq ($(RUN), 1)
 	touch benchmarks/results/test-$(OFLAG)-$(NOW).txt
-	targetlines=$$(expr $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') + $(TRIALS));while [ $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') -lt $$targetlines ];do $(PRERUN) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);done
+	$(TM_PRELOAD)targetlines=$$(expr $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') + $(TRIALS));counter=1;while [ $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') -lt $$targetlines ];do echo "[[ Running Trial $$counter ]]";$(PRERUN) timeout 15s taskset -c 0-$$(expr $(NTHREADS) - 1) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);counter=$$(expr $$counter + 1);done
+endif
 
 .PHONY: run-%
 run-%: $(OBJS) compile-% %.o
@@ -150,7 +161,7 @@ run-%: $(OBJS) compile-% %.o
 
 .PHONY: compile-%
 compile-%: %.o
-	$(CC) $(CFLAGS) $(CCFLAGS) $(OBJS) $*.o -o $*
+	$(TM_PRELOAD) $(CC) $(CFLAGS) $(CCFLAGS) $(OBJS) $*.o -o $*
 
 %.o: %.c
 	$(CC) $(CFLAGS) $(CCFLAGS) -c $< -o $@ $(TESTFLAG)

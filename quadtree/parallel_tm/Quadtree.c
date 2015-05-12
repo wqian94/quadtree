@@ -25,11 +25,11 @@ extern void Marsaglia_srand(uint32_t);
 uint64_t QUADTREE_NODE_COUNT = 0;
 #endif
 
-Node* Node_init(float64_t length, Point center) {
+safe Node* Node_init(float64_t length, Point center) {
     Node *node = (Node*)malloc(sizeof(Node));
     node->is_square = false;
     node->length = length;
-    node->center = (Point*)malloc(sizeof(node->center)),
+    node->center = center;
     node->parent = NULL;
     node->up = NULL;
     node->down = NULL;
@@ -40,7 +40,6 @@ Node* Node_init(float64_t length, Point center) {
 #ifdef QUADTREE_TEST
     node->id = QUADTREE_NODE_COUNT++;
 #endif
-    Point_copy(&center, node->center);
     return node;
 }
 
@@ -58,7 +57,6 @@ Quadtree* Quadtree_init(float64_t length, Point center) {
  * node - the node to be freed
  */
 static inline void Node_free(Node *node) {
-    free(node->center);
     free(node);
 }
 
@@ -74,11 +72,11 @@ static inline void Node_free(Node *node) {
  *
  * Returns whether p is in node.
  */
-bool Quadtree_search_helper(Node *node, Point *p) {
+safe bool Quadtree_search_helper(Node *node, Point *p) {
     if (!in_range(node, p))
         return false;
 
-    register uint8_t quadrant = get_quadrant(node->center, p);
+    register uint8_t quadrant = get_quadrant(&node->center, p);
 
     // if the target child is NULL, we try to drop down a level
     if (node->children[quadrant] == NULL) {
@@ -96,7 +94,7 @@ bool Quadtree_search_helper(Node *node, Point *p) {
         return Quadtree_search_helper(node->children[quadrant], p);
 
     // otherwise, we check if the child point matches, since it's a point node
-    if (Point_equals(node->children[quadrant]->center, p))
+    if (Point_equals(&node->children[quadrant]->center, p))
         return true;
 
     // if we're here, then we need to branch down a level
@@ -107,8 +105,8 @@ bool Quadtree_search_helper(Node *node, Point *p) {
     return false;
 }
 
-bool Quadtree_search(Quadtree *node, Point p) {
-    __transaction_atomic() {
+safe bool Quadtree_search(Quadtree *node, Point p) {
+    __transaction_atomic {
         if (node == NULL)
             return false;
 
@@ -135,7 +133,7 @@ bool Quadtree_search(Quadtree *node, Point p) {
  *
  * Returns the corresponding node, one level lower, or NULL if the action failed.
  */
-Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
+safe Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     if (!in_range(node, p))
         return NULL;
 
@@ -143,11 +141,11 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     Node *parent, *node_param = node;
     do {
         parent = node;
-        node = parent->children[get_quadrant(parent->center, p)];
+        node = parent->children[get_quadrant(&parent->center, p)];
     } while(node != NULL && node->is_square && in_range(node, p));
 
     // check for duplication
-    if (!gap_depth && node != NULL && !node->is_square && Point_equals(node->center, p))
+    if (!gap_depth && node != NULL && !node->is_square && Point_equals(&node->center, p))
         return NULL;
 
     // branch down a level if possible
@@ -170,7 +168,7 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     }
 
     // time to try inserting onto this level
-    register uint8_t quadrant = get_quadrant(parent->center, p);
+    register uint8_t quadrant = get_quadrant(&parent->center, p);
 
     // if the slot is empty, it's trivial
     if (parent->children[quadrant] == NULL) {
@@ -189,10 +187,10 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
 
         // now, we keep splitting until the new node and the sibling are in different quadrants
         register uint8_t sibling_quadrant;
-        while ( (sibling_quadrant = get_quadrant(square->center, sibling->center)) ==
-                (quadrant = get_quadrant(square->center, new_node->center))) {
+        while ( (sibling_quadrant = get_quadrant(&square->center, &sibling->center)) ==
+                (quadrant = get_quadrant(&square->center, &new_node->center))) {
             Point new_square_center = get_new_center(square, quadrant);
-            Point_copy(&new_square_center, square->center);
+            Point_copy(&new_square_center, &square->center);
             square->length *= 0.5;
         }
 
@@ -203,9 +201,9 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
         // now, we need to find the down square to this square, if we're not on the last level
         if (parent->down != NULL) {
             Node *down_square = parent->down;
-            while (!Point_equals(down_square->center, square->center) ||
+            while (!Point_equals(&down_square->center, &square->center) ||
                     abs(down_square->length - square->length) > PRECISION)
-                down_square = down_square->children[get_quadrant(down_square->center, square->center)];
+                down_square = down_square->children[get_quadrant(&down_square->center, &square->center)];
             square->down = down_square;
             down_square->up = square;
         }
@@ -218,16 +216,18 @@ Node* Quadtree_add_helper(Node *node, Point *p, const uint64_t gap_depth) {
     return new_node;
 }
 
-bool Quadtree_add(Quadtree *node, Point p) {
-    __transaction_atomic() {
+safe bool Quadtree_add(Quadtree *node, Point p) {
+    __transaction_atomic {
         while (rand() % 100 < 50) {
             if (node->up == NULL) {
-                node->up = Quadtree_init(node->length, *node->center);
+                node->up = Quadtree_init(node->length, node->center);
                 node->up->down = node;
             }
             node = node->up;
         }
-        
+    }
+
+    __transaction_atomic {
         register uint64_t gap_depth = 0;  // number of layers to ignore when inserting
 
         while (node->up != NULL) {
@@ -250,7 +250,7 @@ bool Quadtree_add(Quadtree *node, Point p) {
  *
  * Returns true if removal is successful, false otherwise.
  */
-bool Quadtree_remove_node(Node *node) {
+safe bool Quadtree_remove_node(Node *node) {
     if (node->down == NULL && node->parent == NULL)
         return false;
 
@@ -277,7 +277,7 @@ bool Quadtree_remove_node(Node *node) {
                 return false;
 
             // if all goes well, we can relink
-            node->parent->children[get_quadrant(node->parent->center, node->center)] = child;
+            node->parent->children[get_quadrant(&node->parent->center, &node->center)] = child;
             child->parent = node->parent;
             node->parent = NULL;
         }
@@ -287,8 +287,8 @@ bool Quadtree_remove_node(Node *node) {
 
     // now, get rid of pointers from the parent
     Node *parent = node->parent, *up = node->up, *down = node->down;
-    if (parent != NULL && parent->children[get_quadrant(parent->center, node->center)] == node)
-        parent->children[get_quadrant(parent->center, node->center)] = NULL;
+    if (parent != NULL && parent->children[get_quadrant(&parent->center, &node->center)] == node)
+        parent->children[get_quadrant(&parent->center, &node->center)] = NULL;
 
     // next, unlink pointers from up and down
     if (node->up != NULL) {
@@ -332,11 +332,11 @@ bool Quadtree_remove_node(Node *node) {
  *
  * Returns true if the node was successfully removed, false if not.
  */
-bool Quadtree_remove_helper(Node *node, Point *p) {
+safe bool Quadtree_remove_helper(Node *node, Point *p) {
     if (!in_range(node, p))
         return false;
 
-    register uint8_t quadrant = get_quadrant(node->center, p);
+    register uint8_t quadrant = get_quadrant(&node->center, p);
 
     // if the target child is NULL, we try to drop down a level
     if (node->children[quadrant] == NULL) {
@@ -354,7 +354,7 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
         return Quadtree_remove_helper(node->children[quadrant], p);
 
     // otherwise, we check if the child point matches, since it's a point node
-    if (Point_equals(node->children[quadrant]->center, p))
+    if (Point_equals(&node->children[quadrant]->center, p))
         return Quadtree_remove_node(node->children[quadrant]);
 
     // if we're here, then we need to branch down a level
@@ -366,8 +366,8 @@ bool Quadtree_remove_helper(Node *node, Point *p) {
  
 }
 
-bool Quadtree_remove(Quadtree *node, Point p) {
-    __transaction_atomic() {
+safe bool Quadtree_remove(Quadtree *node, Point p) {
+    __transaction_atomic {
         while (node->up != NULL)
             node = node->up;
 

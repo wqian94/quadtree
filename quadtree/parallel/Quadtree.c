@@ -1,5 +1,5 @@
 /**
-Naive parallel implementation of compressed skip quadtree with pthreads
+Parallel implementation of compressed skip quadtree with pthreads
 */
 
 #include <assert.h>
@@ -19,7 +19,7 @@ extern uint32_t test_rand();
 #define rand() test_rand()
 #else
 extern uint32_t Marsaglia_rands(uint32_t*);
-#define rand() Marsaglia_rands(&mseed)
+#define rand() Marsaglia_rands(mseed)
 extern void Marsaglia_srand(uint32_t);
 #define srand(x) Marsaglia_srand(x)
 #endif
@@ -43,24 +43,6 @@ pthread_mutex_t *QUADTREE_NODE_COUNT_MUTEX = NULL;
 #define max_node(x, y) ((long)x ^ (((long)x ^ (long)y) & -(x < y)))
 
 #define sort2(x, y) (y = (Node*)((long)(x = (Node*)(max_node(x, y) ^ (long)(y = (Node*)((long)y ^ (long)x)))) ^ (long)y))
-
-static inline bool Node_valid(Node *node);
-
-void print(Node *n) {
-    if (n == NULL)
-        printf("NULL\n");
-    else
-        printf("pointer = %p, is_square = %s, center = (%.6lf, %.6lf), length = %llu, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}, dirty = %s, id = %llu, lock = %p\n", n, n->is_square ? "true" : "false", n->center.x, n->center.y, (unsigned long long)n->length,
-            !Node_valid(n->parent) ? NULL : n->parent,
-            !Node_valid(n->up) ? NULL : n->up,
-            !Node_valid(n->down) ? NULL : n->down,
-            !Node_valid(n->children[0]) ? NULL : n->children[0],
-            !Node_valid(n->children[1]) ? NULL : n->children[1],
-            !Node_valid(n->children[2]) ? NULL : n->children[2],
-            !Node_valid(n->children[3]) ? NULL : n->children[3],
-            n->dirty ? "true" : "false", (unsigned long long)n->id,
-            &n->lock);
-}
 
 static inline Node* Node_init(float64_t length, Point center) {
 #ifdef QUADTREE_TEST
@@ -112,20 +94,6 @@ static inline void Node_free(Node *node) {
 }
 
 /*
- * Node_valid
- *
- * Returns false if node is either NULL or is dirty, and true otherwise. A value of true
- * indicates that the node is both non-NULL and not logically deleted.
- *
- * node - the node to check
- *
- * Returns whether the node is valid for use.
- */
-static inline bool Node_valid(Node *node) {
-    return node != NULL && !node->dirty;
-}
-
-/*
  * struct LockSet_t
  *
  * Compacted data for locking chains
@@ -133,11 +101,13 @@ static inline bool Node_valid(Node *node) {
  * nodelist - the list of nodes we have
  * lockedlist - the list of whether each node is actually locked
  * size - the number of elements we have
+ * maxsize - the max number of elements we can have
  */
 typedef volatile struct LockSet_t {
     Node **nodelist;
     bool *lockedlist;
     uint64_t size;
+    uint64_t maxsize;
 } LockSet;
 
 /*
@@ -148,8 +118,8 @@ typedef volatile struct LockSet_t {
  * nl - a reference to the nodelist to use
  * ll - a reference to the lockedlist boolean array to use
  */
-LockSet LockSet_init(Node **nl, bool *ll) {
-    return (LockSet){ .nodelist = nl, .lockedlist = ll, .size = 0 };
+LockSet LockSet_init(Node **nl, bool *ll, uint64_t maxsize) {
+    return (LockSet){ .nodelist = nl, .lockedlist = ll, .size = 0, .maxsize = maxsize };
 }
 
 /*
@@ -184,6 +154,8 @@ static inline void LockSet_lock(LockSet *lockset, Node *node) {
     }
 
     lockset->size++;
+
+    assert(lockset->size <= lockset->maxsize);
 }
 
 /*
@@ -209,52 +181,6 @@ void print_LockSet(LockSet *lockset) {
     }
     printf("Total length: %llu\n", (unsigned long long)lockset->size);
 }
-
-/* lock2
- *
- * Locks x, y in increasing id order.
- *
- * x, y - the nodes to lock
- */
-/*static inline void lock2(Node *x, Node *y) {
-    sort2(x, y);
-    lock(x);
-    lock(y);
-}*/
-
-/* lock3
- *
- * Locks x, y, z in increasing id order.
- *
- * x, y, z - the nodes to lock
- */
-/*static inline void lock3(Node *x, Node *y, Node *z) {
-    sort2(x, y);
-    sort2(y, z);
-    sort2(x, y);
-    lock(x);
-    lock(y);
-    lock(z);
-}*/
-
-/* lock4
- *
- * Locks w, x, y, z in increasing id order.
- *
- * w, x, y, z - the nodes to lock
- */
-/*static inline void lock4(Node *w, Node *x, Node *y, Node *z) {
-    sort2(w, x);
-    sort2(x, y);
-    sort2(y, z);
-    sort2(w, x);
-    sort2(x, y);
-    sort2(w, x);
-    lock(w);
-    lock(x);
-    lock(y);
-    lock(z);
-}*/
 
 /*
  * Quadtree_search_helper
@@ -604,12 +530,8 @@ bool Quadtree_add(Quadtree *node, Point p) {
     if (!Node_valid(node))
         return false;
 
-#ifndef QUADTREE_TEST
-    uint32_t mseed = Marsaglia_seed + (uint32_t)clock() + (uint32_t)pthread_self();
-    mseed = rand();
-    uint32_t try = mseed & 0xF;
-    uint32_t mask = ~0 << try;
-    mseed = (mseed >> try) | ((mseed & ~mask) << try);
+#ifdef PARALLEL
+    uint32_t *mseed = Marsaglia_parallel_get();
 #endif
 
     register uint64_t insert_levels = 1;
@@ -646,7 +568,7 @@ bool Quadtree_add(Quadtree *node, Point p) {
     const uint64_t lockset_length = 3 * insert_levels;  // 3: parent, child, and potential down
     Node *nodelist[lockset_length];
     bool lockedlist[lockset_length];
-    LockSet lockset = LockSet_init(nodelist, lockedlist);
+    LockSet lockset = LockSet_init(nodelist, lockedlist, lockset_length);
 
     Node *root;
     register uint64_t count = 10;
@@ -852,6 +774,8 @@ bool Quadtree_remove_validate(LockSet *lockset, Point *p) {
              *child   = lockset->nodelist[lockset->size - index - 1];
 
         // check tuple order and pointers
+        if (!Node_valid(node))
+            return false;
         if (!Node_valid(parent))
             return false;
         if (Node_valid(pparent) && (pparent->children[get_quadrant(((Point*)&pparent->center), ((Point*)&parent->center))] != parent ||
@@ -916,7 +840,7 @@ bool Quadtree_remove_helper(LockSet *lockset) {
 }
 
 bool Quadtree_remove(Quadtree *node, Point p) {
-    uint64_t levels = 0;
+    uint64_t levels = 1;
     while (Node_valid(node->up)) {
         node = node->up;
         levels++;
@@ -925,7 +849,7 @@ bool Quadtree_remove(Quadtree *node, Point p) {
     const uint64_t lockset_length = 4 * levels;  // 4: parent-parent, parent, node, and child (sibling)
     Node *nodelist[lockset_length];
     bool lockedlist[lockset_length];
-    LockSet lockset = LockSet_init(nodelist, lockedlist);
+    LockSet lockset = LockSet_init(nodelist, lockedlist, lockset_length);
 
     register uint64_t count = 10;
     while (count) {

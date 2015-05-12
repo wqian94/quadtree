@@ -2,9 +2,9 @@
 Point implementation
 */
 
-#include "../Point.h"
+#include "./Point.h"
 
-Point Point_init(float32_t x, float32_t y) {
+Point Point_init(float64_t x, float64_t y) {
     return (Point){.x = x, .y = y};
 }
 

@@ -47,23 +47,6 @@ pthread_mutex_t *QUADTREE_NODE_COUNT_MUTEX = NULL;
 
 #define sort2(x, y) (y = (Node*)((long)(x = (Node*)(max_node(x, y) ^ (long)(y = (Node*)((long)y ^ (long)x)))) ^ (long)y))
 
-static inline bool Node_valid(Node *node);
-
-void print(Node *n) {
-    if (n == NULL)
-        printf("NULL\n");
-    else
-        printf("pointer = %p, is_square = %s, center = (%.6lf, %.6lf), length = %llu, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}, dirty = %s, id = %llu\n", n, n->is_square ? "true" : "false", n->center.x, n->center.y, (unsigned long long)n->length,
-            !Node_valid(n->parent) ? NULL : n->parent,
-            !Node_valid(n->up) ? NULL : n->up,
-            !Node_valid(n->down) ? NULL : n->down,
-            !Node_valid(n->children[0]) ? NULL : n->children[0],
-            !Node_valid(n->children[1]) ? NULL : n->children[1],
-            !Node_valid(n->children[2]) ? NULL : n->children[2],
-            !Node_valid(n->children[3]) ? NULL : n->children[3],
-            n->dirty ? "true" : "false", (unsigned long long)n->id);
-}
-
 static inline Node* Node_init(float64_t length, Point center) {
 #ifdef QUADTREE_TEST
     if(QUADTREE_NODE_COUNT_MUTEX == NULL) {
@@ -111,20 +94,6 @@ static inline void Node_free(Node *node) {
     pthread_mutex_destroy((pthread_mutex_t*)&node->lock);
 #endif
     free((void*)node);
-}
-
-/*
- * Node_valid
- *
- * Returns false if node is either NULL or is dirty, and true otherwise. A value of true
- * indicates that the node is both non-NULL and not logically deleted.
- *
- * node - the node to check
- *
- * Returns whether the node is valid for use.
- */
-static inline bool Node_valid(Node *node) {
-    return node != NULL && !node->dirty;
 }
 
 /*

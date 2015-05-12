@@ -8,47 +8,34 @@ Some utility functions
 #include <pthread.h>
 #include <stdint.h>
 
+#include "./types.h"
+
+/*******************************
+** Marsaglia RNG
+*******************************/
+
 /**
  * MarsagliaXORV
  *
  * Provided by @amatveev
  */
-static inline uint32_t MarsagliaXORV(uint32_t x) {
-    if (x == 0)
-        x = 1;
-    x ^= x << 6;
-    x ^= ((unsigned)x) >> 21;
-    x ^= x << 7 ;
-    return x;  // use either x or x & 0x7FFFFFFF
-}
+uint32_t MarsagliaXORV(uint32_t x);
 
 /**
  * MarsagliaXOR
  *
  * Provided by @amatveev
  */
-static inline uint32_t MarsagliaXOR(uint32_t* seed) {
-    unsigned x = MarsagliaXORV(*seed);
-    *seed = x;
-    return x & 0x7FFFFFFF;
-}
+uint32_t MarsagliaXOR(uint32_t* seed);
 
-static uint32_t Marsaglia_seed;
-
-static uint32_t Marsaglia_rand() {
-    return (unsigned)MarsagliaXOR(&Marsaglia_seed);
-}
+safe uint32_t Marsaglia_rand();
 
 /**
  * Marsaglia_random
  *
  * Returns a random value between 0 (inclusive) and 1 (exclusive).
  */
-static double Marsaglia_random() {
-    const uint32_t denom = 1e8;
-    const uint32_t num = Marsaglia_rand();
-    return (num % denom) / (double)denom;
-}
+safe double Marsaglia_random();
 
 /**
  * Marsaliga_rands
@@ -59,9 +46,7 @@ static double Marsaglia_random() {
  *
  * Returns a random integer.
  */
-static uint32_t Marsaglia_rands(uint32_t *seed) {
-    return (unsigned)MarsagliaXOR(seed);
-}
+uint32_t Marsaglia_rands(uint32_t *seed);
 
 /**
  * Marsaliga_randoms
@@ -72,31 +57,58 @@ static uint32_t Marsaglia_rands(uint32_t *seed) {
  *
  * Returns a random value between [0, 1).
  */
-static double Marsaglia_randoms(uint32_t *seed) {
-    const uint32_t denom = 1e8;
-    const uint32_t num = Marsaglia_rands(seed);
-    return (num % denom) / (double)denom;
-}
+double Marsaglia_randoms(uint32_t *seed);
 
-static void Marsaglia_srand(uint32_t nseed) {
-    Marsaglia_seed = nseed;
-}
+void Marsaglia_srand(uint32_t nseed);
 
-static volatile pthread_mutexattr_t lock_attr, *lock_attr_ptr = NULL;
+/*******************************
+** Parallel Marsaglia RNG
+*******************************/
 
-static void pthread_mutex_attr_init() {
-    pthread_mutexattr_init((pthread_mutexattr_t*)&lock_attr);
-    pthread_mutexattr_settype((pthread_mutexattr_t*)&lock_attr, PTHREAD_MUTEX_ERRORCHECK);
-    lock_attr_ptr = &lock_attr;
-}
+/**
+ * Marsaglia_parallel_start
+ *
+ * Starts an array of seeds for the RNG, one for each thread.
+ *
+ * nthreads - the number of seeds to generate
+ */
+void Marsaglia_parallel_start(const uint64_t nthreads);
 
-static pthread_mutexattr_t* pthread_mutex_attr() {
-    return (pthread_mutexattr_t*)lock_attr_ptr;
-}
+/**
+ * Marsaglia_parallel_end
+ *
+ * Deallocates resources used for parallelized Marsaglia.
+ */
+void Marsaglia_parallel_end();
 
-static void pthread_mutex_attr_destroy() {
-    lock_attr_ptr = NULL;
-    pthread_mutexattr_destroy((pthread_mutexattr_t*)&lock_attr);
-}
+/**
+ * Marsaglia_parallel_init
+ *
+ * Initializes a Marsaglia parallel seed and associates it with the thread's
+ * pthread_self() ID, given the virtual ID.
+ *
+ * vid - the thread's virtual ID [0, NTHREADS)
+ *
+ * Returns a pointer to the associated seed.
+ */
+uint32_t* Marsaglia_parallel_init(const uint64_t vid);
+
+/**
+ * Marsaglia_parallel_get
+ *
+ * Returns the address for the seed for the current thread, or NULL if there is no
+ * associated seed. This is a somewhat expensive operation, and should be used sparingly.
+ */
+uint32_t* Marsaglia_parallel_get();
+
+/*******************************
+** pthread mutex attr
+*******************************/
+
+void pthread_mutex_attr_init();
+
+pthread_mutexattr_t* pthread_mutex_attr();
+
+void pthread_mutex_attr_destroy();
 
 #endif

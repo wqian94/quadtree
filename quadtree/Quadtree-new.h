@@ -43,9 +43,6 @@ struct SerialSkipQuadtreeNode_t {
     Node *parent;
     Node *up, *down;
     Node *children[4];
-#ifdef QUADTREE_TEST
-    uint64_t id;
-#endif
 };
 
 /*
@@ -75,7 +72,6 @@ struct ParallelSkipQuadtreeNode_t {
     volatile bool dirty;
     //volatile pthread_mutex_t lock;
     volatile Mutex lock;
-    uint64_t id;
 };
 
 typedef Node Quadtree;
@@ -283,32 +279,36 @@ static inline bool Node_valid(Node *node) {
  *
  * Returns whether p is within the boundaries of n.
  */
-static inline bool in_range(Node *n, Point *p) {
-    /*return n->center->x - n->length / 2 <= p->x &&
-        n->center->x + n->length / 2 > p->x &&
-        n->center->y - n->length / 2 <= p->y &&
-        n->center->y + n->length / 2 > p->y;*/
+static bool in_range(Node *n, Point *p) {
+    /*return n->center->data[0] - n->length / 2 <= p->data[0] &&
+        n->center->data[0] + n->length / 2 > p->data[0] &&
+        n->center->data[1] - n->length / 2 <= p->data[1] &&
+        n->center->data[1] + n->length / 2 > p->data[1];*/
     register float64_t bound = n->length * 0.5;
-    return
-        (n->center.x - bound <= p->x) &&
-        (n->center.x + bound > p->x) &&
-        (n->center.y - bound <= p->y) &&
-        (n->center.y + bound > p->y);
+    register uint64_t i;
+    for (i = 0; i < D; i++)
+        if ((n->center.data[i] - bound > p->data[i]) || (n->center.data[i] + bound <= p->data[i]))
+            return false;
+    return true;
 }
 
 /*
  * get_quadrant
  *
- * Returns the quadrant [0,4) that p is in, relative to the origin point.
+ * Returns the quadrant [0,2^D) that p is in, relative to the origin point.
  *
  * origin - the point representing the origin of the bounding square
  * p - the point we're trying to find the quadrant of
  *
  * Returns the quadrant that p is in, relative to origin.
  */
-static inline int8_t get_quadrant(Point *origin, Point *p) {
-    //return (p->x >= origin->x) + 2 * (p->y >= origin->y);
-    return (p->x >= origin->x - PRECISION) | ((p->y >= origin->y - PRECISION) << 1);
+static int8_t get_quadrant(Point *origin, Point *p) {
+    //return (p->data[0] >= origin->data[0]) + 2 * (p->data[1] >= origin->data[1]);
+    register uint64_t i;
+    int8_t quadrant = 0;
+    for (i = 0; i < D; i++)
+        quadrant |= ((p->data[i] >= origin->data[i] - PRECISION) & 1) << i;
+    return quadrant;
 }
 
 /*
@@ -318,17 +318,16 @@ static inline int8_t get_quadrant(Point *origin, Point *p) {
  * the center of the square that represents that quadrant.
  *
  * node - the parent node
- * quadrant - the quadrant to search for; must be in range [0,4)
+ * quadrant - the quadrant to search for, [0, 2^D)
  *
  * Returns the center point for the given quadrant of node.
  */
-static inline Point get_new_center(Node *node, int8_t quadrant) {
-    return (Point){
-        /*.x = node->center->x + ((quadrant % 2) - 0.5) * 0.5 * node->length,
-        .y = node->center->y + ((quadrant * 0.5) - 0.5) * 0.5 * node->length*/
-        .x = node->center.x + ((quadrant & 1) - 0.5) * 0.5 * node->length,
-        .y = node->center.y + ((quadrant & 2) - 1) * 0.25 * node->length
-        };
+static Point get_new_center(Node *node, int8_t quadrant) {
+    Point p;
+    register uint64_t i;
+    for (i = 0; i < D; i++)
+        p.data[i] = node->center.data[i] + (((quadrant >> i) & 1) - 0.5) * node->length;
+    return p;
 }
 
 #ifdef QUADTREE_TEST
@@ -341,15 +340,17 @@ static inline Point get_new_center(Node *node, int8_t quadrant) {
  * buffer - the buffer to write to
  */
 static inline void Node_string(Node *node, char *buffer) {
-    sprintf(buffer, "Node{id = %llu, is_square = %s, center = (%f, %f), length = %lf, parent = %s, up = %s, down = %s, children = {%s, %s, %s, %s}}",
+    char pbuf[100];
+    Point_string(node->center, pbuf);
+    sprintf(buffer, "Node{id = %llu, is_square = %s, center = %s, length = %lf, parent = %s, up = %s, down = %s, children = {%s, %s, %s, %s}}",
         (unsigned long long)node->id,
-        (node->is_square ? "YES" : "NO"), node->center->x, node->center->y, node->length,
+        (node->is_square ? "YES" : "NO"), pbuf, node->length,
         (node->parent == NULL ? "NO" : "YES"), (node->up == NULL ? "NO" : "YES"),
         (node->down == NULL ? "NO" : "YES"),
         (node->children[0] == NULL ? "NO" : "YES"), (node->children[1] == NULL ? "NO" : "YES"),
         (node->children[2] == NULL ? "NO" : "YES"), (node->children[3] == NULL ? "NO" : "YES"));
     /*sprintf(buffer, "Node{is_square = %s, center = (%f, %f), length = %lf, parent = %p, up = %p, down = %p, children = {%p, %p, %p, %p}}",
-        (node->is_square ? "YES" : "NO"), node->center->x, node->center->y, node->length,
+        (node->is_square ? "YES" : "NO"), node->center->data[0], node->center->data[1], node->length,
         node->parent, node->up, node->down,
         node->children[0], node->children[1], node->children[2], node->children[3]);*/
 }

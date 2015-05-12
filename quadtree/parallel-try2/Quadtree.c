@@ -96,20 +96,6 @@ static inline void Node_free(Node *node) {
     free(node);
 }
 
-/*
- * Node_valid
- *
- * Returns false if node is either NULL or is dirty, and true otherwise. A value of true
- * indicates that the node is both non-NULL and not logically deleted.
- *
- * node - the node to check
- *
- * Returns whether the node is valid for use.
- */
-static inline bool Node_valid(Node *node) {
-    return node != NULL && !node->dirty;
-}
-
 /* lock2
  *
  * Locks x, y in increasing id order.

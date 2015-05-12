@@ -13,7 +13,7 @@ void print_Quadtree(Quadtree *root) {
     printf("id=%llu, ", (unsigned long long)root->id);
 #endif
     printf("center=(%lf, %lf), length=%lf, is_square=%d",
-        root->center->x, root->center->y, root->length, root->is_square);
+        root->center->data[0], root->center->data[1], root->length, root->is_square);
 
     if (root->parent != NULL
         #ifdef PARALLEL
@@ -173,7 +173,7 @@ void test_get_quadrant() {
     int i;
     char buffer[100];
     for (i = 0; i < 8; i++) {
-        sprintf(buffer, "get_quadrant((%f, %f), (%f, %f))", origin.x, origin.y, points[i].x, points[i].y);
+        sprintf(buffer, "get_quadrant((%f, %f), (%f, %f))", origin.data[0], origin.data[1], points[i].data[0], points[i].data[1]);
         assertLong(expected_quadrants[i], get_quadrant(&origin, &points[i]), buffer);
     }
 }
@@ -231,13 +231,13 @@ void test_quadtree_add() {
     Node *node;
     for (node = q1; node != NULL; node = node->up)
         count_q1_levels++;
-    sprintf(buffer, "Levels of Node(%lf, %lf)", q1->center->x, q1->center->y);
+    sprintf(buffer, "Levels of Node(%lf, %lf)", q1->center->data[0], q1->center->data[1]);
     assertLong(5, count_q1_levels, buffer);
 
     int count_q2_levels = 0;
     for (node = q2; node != NULL; node = node->up)
         count_q2_levels++;
-    sprintf(buffer, "Levels of Node(%lf, %lf)", q2->center->x, q2->center->y);
+    sprintf(buffer, "Levels of Node(%lf, %lf)", q2->center->data[0], q2->center->data[1]);
     assertLong(5, count_q2_levels, buffer);
 
     printf("\n---Quadtree_add Conflicting Node Test---\n");
@@ -254,7 +254,7 @@ void test_quadtree_add() {
         assertPoint(p3, *q3->center, "q3->center");
 
         sprintf(buffer, "get_quadrant(Point(%f, %f), Point(%f, %f))",
-            square1->center->x, square1->center->y, q3->center->x, q3->center->y);
+            square1->center->data[0], square1->center->data[1], q3->center->data[0], q3->center->data[1]);
         assertLong(3, get_quadrant(square1->center, q3->center), buffer);
     }
     else {  // alert to problems
@@ -265,7 +265,7 @@ void test_quadtree_add() {
     assertFalse(square1->children[0] == NULL, "(q1->children[3]->children[0] == NULL)");
 
     sprintf(buffer, "get_quadrant(Point(%f, %f), Point(%f, %f))",
-        square1->center->x, square1->center->y, q2->center->x, q2->center->y);
+        square1->center->data[0], square1->center->data[1], q2->center->data[0], q2->center->data[1]);
     assertLong(0, get_quadrant(square1->center, q2->center), buffer);
 
     printf("\n---Quadtree_add Inner Square Generation Test---\n");

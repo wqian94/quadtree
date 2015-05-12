@@ -3,10 +3,11 @@ export
 SHELL := /bin/bash
 
 CC := gcc
-CFLAGS := -std=gnu99 -g -fopenmp
+CFLAGS := -std=gnu99 -g -pthread -lpthread
 RM := rm -f
 CPU_NODE := 0
 NOW := $(shell date -u +%s)
+
 
 # to turn on compiling in parallel
 ifdef PARALLEL
@@ -18,12 +19,22 @@ ifdef MTRACE
 CCFLAGS += -DMTRACE
 endif
 
-# for OMP_NUM_THREADS
+# for NUM_THREADS
 ifdef NTHREADS
-CCFLAGS += -DOMP_NTHREADS=$(NTHREADS)
+CCFLAGS += -DNTHREADS=$(NTHREADS)
 endif
 
-COUNT ?= 1048576# expected ~1MB of data
+# for INITIAL
+ifdef INITIAL
+CCFLAGS += -DINITIAL=$(INITIAL)
+endif
+
+# for DIMENSIONS
+ifdef DIMENSIONS
+CCFLAGS += -DDIMENSIONS=$(DIMENSIONS)
+endif
+
+TIME ?= 1# 1 second
 WRATIO ?= 0.1
 DRATIO ?= 0.5
 
@@ -32,7 +43,7 @@ ifdef VERBOSE
 CCFLAGS += -DVERBOSE
 endif
 
-CCFLAGS += -DCOUNT=$(COUNT)LL -DWRATIO=$(WRATIO) -DDRATIO=$(DRATIO) \
+CCFLAGS += -DTIME=$(TIME)LL -DWRATIO=$(WRATIO) -DDRATIO=$(DRATIO) \
 	-DHEADER=\"./Quadtree.h\" -DTYPE=Quadtree \
 	-DCONSTRUCTOR=Quadtree_init -DDESTRUCTOR=Quadtree_free \
 	-DINSERT=Quadtree_add -DQUERY=Quadtree_search -DDELETE=Quadtree_remove

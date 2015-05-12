@@ -5,7 +5,7 @@ Benchmarking suite utilities header
 #ifndef BENCHMARK_TEST_H
 #define BENCHMARK_TEST_H
 
-#include <omp.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -19,17 +19,11 @@ Benchmarking suite utilities header
 #include "./assertions.h"
 #include "./util.h"
 
-#if defined (COUNT) && defined (WRATIO) && defined (DRATIO) && defined (TYPE) && defined (CONSTRUCTOR) && defined (INSERT) && defined (QUERY) && defined (DELETE) && defined (DESTRUCTOR) && defined(HEADER)
+#if defined (TIME) && defined (WRATIO) && defined (DRATIO) && defined (TYPE) && defined (CONSTRUCTOR) && defined (INSERT) && defined (QUERY) && defined (DELETE) && defined (DESTRUCTOR) && defined(HEADER)
 #define READY_TO_RUN
 
 #include HEADER
 #endif
-
-extern uint32_t Marsaglia_rand();
-#define rand() Marsaglia_rand()
-
-extern double Marsaglia_random();
-#define random() Marsaglia_random()
 
 typedef struct {
     bool on;

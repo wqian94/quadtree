@@ -2,208 +2,295 @@
 Benchmarking suite for 2D data structures
 */
 
-
 #include "benchmark.h"
 
-#ifndef max
-#define max(x, y) (y ^ ((x ^ y) & -(x > y)))
+#ifndef min
+#define min(x, y) (y ^ ((x ^ y) & -(x < y)))
 #endif
 
-typedef struct {
-    bool insert, query, delete;
-    Point *point;
+#ifdef READY_TO_RUN
+
+#define COUNT_ALL
+
+#ifdef DIMENSIONS
+#define D DIMENSIONS
+#else
+#define D 2
+#endif
+
+/**
+ * OperationPacket
+ *
+ * An OperationPacket channels information between the parent thread and each child
+ * thread. It allows the thread to indicate how many insertions, queries, and deletes
+ * it processed, as well as providing information to the thread about whether to continue
+ * execution, what its virtual ID number is [0, NTHREADS), what the root/first node is,
+ * and the bounds of the points to be generated
+ *
+ * root - the first node to start at
+ * p_min - the point with the smallest coordinate values
+ * p_max - the point with the largest coordinate values
+ * inserts - buffer for number of inserts processed
+ * queries - buffer for number of queries processed
+ * deletes - buffer for number of deletes processed
+ * vid - the virtual ID for the thread
+ * actives - buffer for already-active points
+ * active_size - size of active points buffer
+ * ready - the bit for the thread to say it's ready
+ */
+typedef volatile struct {
+    TYPE *root;
+    Point p_min, p_max;
+    uint64_t inserts, queries, deletes;
+    uint64_t vid;
+    Point *actives;
+    uint64_t active_size;
+    bool ready;
 } OperationPacket;
 
-#ifdef READY_TO_RUN
-uint64_t execute(TYPE *root, OperationPacket *pkt, uint64_t i) {
-    clock_t start = 0, end = 0;
-    if (pkt->insert) {
-        //start = clock();
-        INSERT(root, *pkt->point);
-        //end = clock();
-    }
-    else if (pkt->query) {
-        //start = clock();
-        QUERY(root, *pkt->point);
-        //end = clock();
-    }
-    else if (pkt->delete) {
-        //start = clock();
-        DELETE(root, *pkt->point);
-        //end = clock();
-    }
-    else {
-        printf("Invalid kind of operation detected at operation %llu/%llu.\n", (unsigned long long)i, COUNT);
-        return (uint64_t)-1;  // that is, a lot of time
-    } 
+static volatile bool STARTED = false, ACTIVE = true;
+void* execute(void *op) {
+    OperationPacket *packet = (OperationPacket*)op;
 
-    return (uint64_t)(end - start);
+    TYPE *root = packet->root;
+    Point p_min = packet->p_min, p_max = packet->p_max;
+    uint32_t *mseed = Marsaglia_parallel_init(packet->vid);
+    packet->inserts = 0;
+    packet->queries = 0;
+    packet->deletes = 0;
+
+    const uint64_t npoints = min(2 * packet->active_size, 1);
+    Point *pbuffer = (Point*)malloc(sizeof(*pbuffer) * npoints);  // ``active" points
+    uint64_t head = 0, tail = 0;
+    for (head = 0; head < packet->active_size; head++)
+        pbuffer[head] = packet->actives[head];
+
+    packet->ready = true;
+
+    // wait to begin
+    while (!STARTED);
+
+    while (ACTIVE) {
+        // writes vs reads
+        if (head == tail || Marsaglia_randoms(mseed) < WRATIO) {
+            // deletes vs inserts
+            if (head != tail && Marsaglia_randoms(mseed) < DRATIO) {
+                Point p = pbuffer[tail];
+                tail = (tail + 1) % npoints;
+
+#ifdef COUNT_ALL
+                DELETE(root, p);
+                packet->deletes++;
+#else
+                packet->deletes += DELETE(root, p);
+#endif
+            }
+            else {
+                Point p;
+                /*register uint64_t i;
+                for (i = 0; i < D; i++)
+                    p.data[i] = p_min.data[i] + Marsaglia_randoms(mseed) * (p_max.data[i] - p_min.data[i]);*/
+                p.x = p_min.x + Marsaglia_randoms(mseed) * (p_max.x - p_min.x);
+                p.y = p_min.y + Marsaglia_randoms(mseed) * (p_max.y - p_min.y);
+
+                // within buffer
+                if ((head + 1) % npoints != tail) {
+                    pbuffer[head] = p;
+                    head = (head + 1) % npoints;
+                }
+
+#ifdef COUNT_ALL
+                INSERT(root, p);
+                packet->inserts++;
+#else
+                packet->inserts += INSERT(root, p);
+#endif
+            }
+        }
+        else {
+            uint64_t size = (head + npoints - tail) % npoints;
+            uint64_t index = (uint64_t)(size * Marsaglia_randoms(mseed));
+
+#ifdef COUNT_ALL
+            QUERY(root, pbuffer[(tail + index) % npoints]);
+            packet->queries++;
+#else
+            packet->queries += QUERY(root, pbuffer[(tail + index) % npoints]);
+#endif
+        }
+    }
+
+    free(pbuffer);
+
+    pthread_exit(0);
+    return NULL;
 }
 
-void test_random_n(const uint64_t num_samples) {
-    Marsaglia_srand(num_samples % ((1LL << 32) - 1));
+void test_random(const uint64_t seconds) {
+    Marsaglia_srand(seconds % ((1LL << 32) - 1));
     pthread_mutex_attr_init();
-
-    float64_t s1 = 1 << 16;  // size1; chose to use S instead of L
-    Point p1 = Point_init(0, 0);
-    TYPE *q1 = CONSTRUCTOR(s1, p1);
-
-    test_rand_off();
-
-    Point *points = (Point*)malloc(sizeof(points) * num_samples);
-    uint64_t *time_samples = (uint64_t*)malloc(sizeof(uint64_t) * num_samples);
-    OperationPacket *packets = (OperationPacket*)malloc(sizeof(OperationPacket) * num_samples);
-
-    Point *insert_ptr = points, *query_ptr = points, *delete_ptr = points;
-
-    uint64_t total_cycles = 0, insert_cycles = 0, query_cycles = 0, delete_cycles = 0;
-    uint64_t insert_count = 0, query_count = 0, delete_count = 0;
 
     register uint64_t i;
 
-    for (i = 0; i < num_samples; i++) {
-        OperationPacket *pkt = packets + i;
-        pkt->insert = false;
-        pkt->query = false;
-        pkt->delete = false;
-        pkt->point = NULL;
+    float64_t length = 1LL << 32;
+    Point root_point;
+    /*for (i = 0; i < D; i++)
+        root_point.data[i] = 0;*/
+    root_point.x = 0;
+    root_point.y = 0;
+    TYPE *root = CONSTRUCTOR(length, root_point);
 
-        // write
-        if (query_ptr >= insert_ptr || random() < WRATIO) {
-            // delete
-            if (delete_ptr < insert_ptr && random() < DRATIO) {
-                pkt->delete = true;
-                pkt->point = delete_ptr;
-                delete_ptr++;
-                delete_count++;
-            }
-            // insert
-            else {
-                double x, y;
-                x = (random() - 0.5) * s1;
-                y = (random() - 0.5) * s1;
-                *insert_ptr = Point_init(x, y);
-                pkt->insert = true;
-                pkt->point = insert_ptr;
-                insert_ptr++;
-                insert_count++;
-            }
-        }
-        // read
-        else {
-            query_ptr = delete_ptr;
-            while (query_ptr + 1 < insert_ptr)
-                if (random() < 0.1)
-                    break;
-                else
-                    query_ptr++;
-            pkt->query = true;
-            pkt->point = query_ptr;
-            query_count++;
-        }
+    test_rand_off();
+
+#ifdef VERBOSE
+    printf("Dimensions: %llu\n", (unsigned long long)D);
+#endif
+
+#ifdef INITIAL
+    const uint64_t initial_population = INITIAL;
+#else
+    const uint64_t initial_population = 1000000;
+#endif
+
+#ifdef VERBOSE
+    printf("Populating tree with %llu nodes...\n", (unsigned long long)initial_population);
+#endif
+
+    Point *initial_actives = (Point*)malloc(sizeof(*initial_actives) * initial_population);
+    for (i = 0; i < initial_population; i++) {
+        /*register uint64_t j;
+        for (j = 0; j < D; j++)
+            initial_actives[i].data[j] = (Marsaglia_random() - 0.5) * length;*/
+        initial_actives[i].x = (Marsaglia_random() - 0.5) * length;
+        initial_actives[i].y = (Marsaglia_random() - 0.5) * length;
+        INSERT(root, initial_actives[i]);
     }
+
 #ifdef VERBOSE
-    printf("Prepared:\n    %10llu inserts\n    %10llu queries\n    %10llu deletes\n",
-        (unsigned long long)insert_count, (unsigned long long)query_count, (unsigned long long)delete_count);
+    printf("Running for %llu seconds\n", (unsigned long long)seconds);
 #endif
 
-    struct timeval start, end;
-    gettimeofday(&start, NULL);
-    uint64_t nthreads = 1;
 #ifdef PARALLEL
-#ifdef OMP_NTHREADS
-    omp_set_num_threads(OMP_NTHREADS);
-    nthreads = OMP_NTHREADS;
+
+#ifndef NTHREADS
+#define NTHREADS 1
 #endif
+
 #ifdef VERBOSE
-        printf("Parallel %llu threads\n", (unsigned long long)nthreads);
+    printf("Parallel %llu threads\n", (unsigned long long)NTHREADS);
 #endif
-#pragma omp parallel for
-    for (i = 0; i < nthreads; i++) {
+
+    const uint64_t nthreads = NTHREADS;
 #else
 #ifdef VERBOSE
         printf("Serial\n");
 #endif
-    for (i = 0; i < 1; i++) {
+
+    const uint64_t nthreads = 1;
 #endif
-        uint64_t j;
-        for (j = 0; i + nthreads * j < num_samples; j++) {
-            OperationPacket *pkt = packets + i + nthreads * j;
-            time_samples[i + nthreads * j] = execute(q1, pkt, i + nthreads * j);
-        }
-    }
-    uint64_t end_time = clock();
-
-    /*uint64_t insert_slowest = 0, query_slowest = 0, delete_slowest = 0, slowest = 0;
-    for (i = 0; i < num_samples; i++) {
-        if (packets[i].insert) {
-            insert_cycles += time_samples[i];
-            insert_slowest = max(insert_slowest, time_samples[i]);
-        }
-        else if (packets[i].query) {
-            query_cycles += time_samples[i];
-            query_slowest = max(query_slowest, time_samples[i]);
-        }
-        else if (packets[i].delete) {
-            delete_cycles += time_samples[i];
-            delete_slowest = max(delete_slowest, time_samples[i]);
-        }
-        slowest = max(slowest, time_samples[i]);
-    }
-    total_cycles = insert_cycles + query_cycles + delete_cycles;*/
-
-    gettimeofday(&end, NULL);
-    int64_t seconds = end.tv_sec - start.tv_sec;
-    int64_t microseconds = end.tv_usec - start.tv_usec;
 
 #ifdef VERBOSE
-    printf("Real time for       %10llu operations:  %12.4lf s\n", (unsigned long long)num_samples, seconds + microseconds * 1e-6);
-    printf("Number of inserts:  %10llu\n", (unsigned long long)insert_count);
-    printf("Number of queries:  %10llu\n", (unsigned long long)query_count);
-    printf("Number of deletes:  %10llu\n", (unsigned long long)delete_count);
-    /*
-    printf("Real time for  %10llu operations:  %12.4lf s\n", (unsigned long long)num_samples, overall_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total work for %10llu inserts:     %12.4lf s\n", (unsigned long long)insert_count, insert_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total work for %10llu queries:     %12.4lf s\n", (unsigned long long)query_count, query_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total work for %10llu deletes:     %12.4lf s\n", (unsigned long long)delete_count, delete_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Total work for %10llu operations:  %12.4lf s\n", (unsigned long long)num_samples, total_cycles / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu inserts:     %12.4lf s\n", (unsigned long long)insert_count, insert_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu queries:     %12.4lf s\n", (unsigned long long)query_count, query_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu deletes:     %12.4lf s\n", (unsigned long long)delete_count, delete_slowest / (float64_t)CLOCKS_PER_SEC);
-    printf("Span of %17llu operations:  %12.4lf s\n", (unsigned long long)num_samples, slowest / (float64_t)CLOCKS_PER_SEC);
-    */
+    printf("\n[Estimated] {Inserts: %5.2lf%%    Queries: %5.2lf%%    Deletes: %5.2lf%%}\n",
+        100.0 * WRATIO * (1 - DRATIO), 100.0 * (1 - WRATIO), 100.0 * WRATIO * DRATIO);
+#endif
+
+    Marsaglia_parallel_start(nthreads);
+
+    OperationPacket packets[nthreads];
+    Point p_min, p_max;
+    /*for (i = 0; i < D; i++) {
+        p_min.data[i] = root_point.data[i] - 0.5 * length;
+        p_max.data[i] = root_point.data[i] + 0.5 * length;
+    }*/
+    p_min.x = root_point.x - 0.5 * length;
+    p_min.y = root_point.y - 0.5 * length;
+    p_max.x = root_point.x + 0.5 * length;
+    p_max.y = root_point.y + 0.5 * length;
+    const uint64_t actives_per_thread = min(100000, initial_population / nthreads);
+    for (i = 0; i < nthreads; i++) {
+        packets[i] = (OperationPacket) {
+            .root = root,
+            .p_min = p_min,
+            .p_max = p_max,
+            .inserts = 0,
+            .queries = 0,
+            .deletes = 0,
+            .vid = i,
+            .actives = initial_actives + i * actives_per_thread,
+            .active_size = actives_per_thread,
+            .ready = false
+        };
+    }
+
+    pthread_t threads[nthreads];
+
+    for (i = 0; i < nthreads; i++)
+        pthread_create(threads + i, NULL, execute, (void*)(packets + i));
+
+    for (i = 0; i < nthreads; i++)
+        while (!packets[i].ready);
+
+    STARTED = false;
+    ACTIVE = true;
+
+    struct timeval start, end;
+    gettimeofday(&start, NULL);
+
+    STARTED = true;  // threads can start now
+
+    sleep(seconds);
+
+    ACTIVE = false;  // threads should stop now
+
+    for (i = 0; i < nthreads; i++) {
+        pthread_join(threads[i], NULL);
+    }
+
+    gettimeofday(&end, NULL);
+    int64_t time_seconds = end.tv_sec - start.tv_sec;
+    int64_t time_microseconds = end.tv_usec - start.tv_usec;
+    float64_t total_seconds = time_seconds + time_microseconds * 1e-6;
+
+    uint64_t inserts = 0, queries = 0, deletes = 0;
+    for (i = 0; i < nthreads; i++) {
+        inserts += packets[i].inserts;
+        queries += packets[i].queries;
+        deletes += packets[i].deletes;
+    }
+    uint64_t total = inserts + queries + deletes;
+
+#ifdef VERBOSE
+    printf("[Real]      {Inserts: %5.2lf%%    Queries: %5.2lf%%    Deletes: %5.2lf%%}\n\n",
+        100.0 * inserts / total, 100.0 * queries / total, 100.0 * deletes / total);
+    printf("Total operations:   %10llu\n", (unsigned long long)total);
+    printf("Number of inserts:  %10llu\n", (unsigned long long)inserts);
+    printf("Number of queries:  %10llu\n", (unsigned long long)queries);
+    printf("Number of deletes:  %10llu\n", (unsigned long long)deletes);
+    printf("Total real time:    %17.6lf s\n", total_seconds);
+    printf("Total throughput:   %17.6lf ops/s\n", total / total_seconds);
 #else
-    printf("%llu, %lf, %llu, %llu, %llu", (unsigned long long)num_samples, seconds + microseconds * 1e-6,
-        (unsigned long long)insert_count, (unsigned long long)query_count, (unsigned long long)delete_count);
-    /*
-    printf("%llu, %llu, %llu, %llu", (unsigned long long)num_samples, (unsigned long long)CLOCKS_PER_SEC,
-        (unsigned long long)overall_cycles, (unsigned long long)total_cycles);
-    printf(", %llu, %llu", (unsigned long long)insert_count, (unsigned long long)insert_cycles);
-    printf(", %llu, %llu", (unsigned long long)query_count, (unsigned long long)query_cycles);
-    printf(", %llu, %llu", (unsigned long long)delete_count, (unsigned long long)delete_cycles);
-    printf(", %llu, %llu", (unsigned long long)num_samples, (unsigned long long)slowest);
-    printf(", %llu, %llu", (unsigned long long)insert_count, (unsigned long long)insert_slowest);
-    printf(", %llu, %llu", (unsigned long long)query_count, (unsigned long long)query_slowest);
-    printf(", %llu, %llu", (unsigned long long)delete_count, (unsigned long long)delete_slowest);
-    */
+    printf("%llu, %llu, %lf, %llu, %llu, %llu, %llu", (unsigned long long)nthreads,
+        (unsigned long long)total, total_seconds, (unsigned long long)initial_population,
+        (unsigned long long)inserts, (unsigned long long)queries, (unsigned long long)deletes);
     printf("\n");
 #endif
 
-    DESTRUCTOR(q1);
+    DESTRUCTOR(root);
 
 #ifdef CLEANUP
     CLEANUP();
 #endif
 
-    free(points);
-    free(time_samples);
-    free(packets);
+    free(initial_actives);
     pthread_mutex_attr_destroy();
+    pthread_exit(0);
 }
 #endif
 
 void test() {
-    test_random_n(COUNT);
+#ifdef READY_TO_RUN
+    test_random(TIME);
+#endif
 }
 
 int main(int argc, char* argv[]) {
@@ -218,7 +305,7 @@ int main(int argc, char* argv[]) {
 #ifdef VERBOSE
     printf("[Beginning tests]\n");
     char testname[128];
-    sprintf(testname, "Random %llu test", COUNT);
+    sprintf(testname, "Randomized test (%llu seconds)", (unsigned long long)TIME);
     start_test(test, testname);
     printf("\n[Ending tests]\n");
 #else
@@ -228,7 +315,7 @@ int main(int argc, char* argv[]) {
     return 0;
 #else
     printf("Need to define at compile time:\n");
-    printf("-DCOUNT (# operations, must be a LL)\n");
+    printf("-DTIME (integer time in seconds, must be an LL)\n");
     printf("-DWRATIO (0.0-1.0 write ratio among read/write ops)\n");
     printf("-DDRATIO (0.0-1.0 delete ratio among writes)\n");
     printf("-DHEADER (the header file, in quotes, e.g. \"./DataType.h\")\n");
@@ -240,8 +327,11 @@ int main(int argc, char* argv[]) {
     printf("-DDESTRUCTOR (the datatype destructor)\n");
     printf("\nOptional:\n");
     printf("-DCLEANUP (the cleanup function, takes no argument)\n");
+    printf("-DINITIAL (initial population, defaults to 1,000,000 nodes)\n");
     printf("-DMTRACE (define to enable mtrace)\n");
-    printf("-DPARALLEL (use OpenMP to run in parallel; serial otherwise)\n");
+    printf("-DPARALLEL (use pthreads to run in parallel; serial otherwise)\n");
+    printf("-DNTHREADS (number of threads to use, defaults to 1)\n");
+    printf("-DDIMENSIONS (number of dimensions to use, defaults to 2)\n");
     return 11;
 #endif
 }

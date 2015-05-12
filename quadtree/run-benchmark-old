@@ -1,0 +1,51 @@
+#!/bin/bash
+
+PARALLEL=""
+NUMA=""
+TRIALS=5
+OTHER=""
+SUBTYPE=""
+TIME=1
+
+function run {
+    SUBTYPE=$1
+    PARALLEL=$2
+    NUMA=$3
+    NTHREADS=$4
+    for k in 3
+    do
+        cd ../benchmark
+        if [ "$NTHREADS" == "" ]
+        then
+            make -B $PARALLEL TIME=$TIME
+            TARGET=benchmarks/results-$SUBTYPE-O$k
+        else
+            make -B $PARALLEL TIME=$TIME NTHREADS=$NTHREADS
+            TARGET=benchmarks/results-$SUBTYPE-O$k-$NTHREADS
+        fi
+        cd ../quadtree
+        if [ "$SUBTYPE" == "parallel_tm" ]
+        then
+            PARALLEL=""
+        fi
+        make -B benchmark-$SUBTYPE-O$k $PARALLEL $NUMA TRIALS=5
+        mkdir -p $TARGET
+        mv benchmarks/results/* $TARGET
+    done
+}
+
+#for j in "parallel_tm"
+#for j in "serial" "parallel" "parallel_tm"
+for j in "parallel_cqt" "parallel_tm_cqt"
+do
+    SUBTYPE=$j
+    if [ $j == "serial" ]
+    then
+        run $j "" $i "" ""
+    else
+        for k in {1..16}
+        do
+            run $j "PARALLEL=1" "" $k
+        done
+    fi
+done
