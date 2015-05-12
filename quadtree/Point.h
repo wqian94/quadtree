@@ -12,13 +12,19 @@ Point
 #define abs(x) ((1 - 2 * ((x) < 0)) * (x))
 #define PRECISION 1e-6
 
+#ifdef DIMENSIONS
+#define D DIMENSIONS
+#else
+#define D 2
+#endif
+
 /**
  * struct Point_t
  *
  * Represents D-dimensional data. Contains D members.
  */
 typedef struct Point_t{
-    float64_t x, y;
+    float64_t data[D];
 } Point;
 
 /**
@@ -32,7 +38,11 @@ typedef struct Point_t{
  *
  * Returns a Point representing (x, y, ...).
  */
+#if D == 2
 Point Point_init(float64_t x, float64_t y);
+#elif D == 3
+Point Point_init(float64_t x, float64_t y, float64_t z);
+#endif
 
 /**
  * Point_compare
@@ -74,7 +84,11 @@ safe bool Point_equals(Point *a, Point *b);
 safe void Point_copy(Point *from, Point *to);
 
 static void Point_string(Point *p, char *buffer) {
-    sprintf(buffer, "Point(%lf, %lf)", p->x, p->y);
+    sprintf(buffer, "Point(%lf", p->data[0]);
+    register uint64_t i;
+    for (i = 1; i < D; i++)
+        sprintf(buffer, "%s, %lf", buffer, p->data[i]);
+    sprintf(buffer, "%s)", buffer);
 }
 
 #endif

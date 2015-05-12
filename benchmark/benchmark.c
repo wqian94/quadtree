@@ -11,6 +11,7 @@ Benchmarking suite for 2D data structures
 #ifdef READY_TO_RUN
 
 #define COUNT_ALL
+#define NEW_POINT
 
 #ifdef DIMENSIONS
 #define D DIMENSIONS
@@ -59,10 +60,10 @@ void* execute(void *op) {
     packet->queries = 0;
     packet->deletes = 0;
 
-    const uint64_t npoints = min(2 * packet->active_size, 1);
+    const uint64_t npoints = min(2 * packet->active_size, 1000);
     Point *pbuffer = (Point*)malloc(sizeof(*pbuffer) * npoints);  // ``active" points
     uint64_t head = 0, tail = 0;
-    for (head = 0; head < packet->active_size; head++)
+    for (head = 0; head < npoints; head++)
         pbuffer[head] = packet->actives[head];
 
     packet->ready = true;
@@ -87,11 +88,15 @@ void* execute(void *op) {
             }
             else {
                 Point p;
-                /*register uint64_t i;
+#ifdef NEW_POINT
+                register uint64_t i;
                 for (i = 0; i < D; i++)
-                    p.data[i] = p_min.data[i] + Marsaglia_randoms(mseed) * (p_max.data[i] - p_min.data[i]);*/
+                    p.data[i] = p_min.data[i] + Marsaglia_randoms(mseed) * (p_max.data[i] - p_min.data[i]);
+#else
                 p.x = p_min.x + Marsaglia_randoms(mseed) * (p_max.x - p_min.x);
                 p.y = p_min.y + Marsaglia_randoms(mseed) * (p_max.y - p_min.y);
+                p.z = p_min.z + Marsaglia_randoms(mseed) * (p_max.z - p_min.z);
+#endif
 
                 // within buffer
                 if ((head + 1) % npoints != tail) {
@@ -134,10 +139,14 @@ void test_random(const uint64_t seconds) {
 
     float64_t length = 1LL << 32;
     Point root_point;
-    /*for (i = 0; i < D; i++)
-        root_point.data[i] = 0;*/
+#ifdef NEW_POINT
+    for (i = 0; i < D; i++)
+        root_point.data[i] = 0;
+#else
     root_point.x = 0;
     root_point.y = 0;
+    root_point.z = 0;
+#endif
     TYPE *root = CONSTRUCTOR(length, root_point);
 
     test_rand_off();
@@ -158,11 +167,15 @@ void test_random(const uint64_t seconds) {
 
     Point *initial_actives = (Point*)malloc(sizeof(*initial_actives) * initial_population);
     for (i = 0; i < initial_population; i++) {
-        /*register uint64_t j;
+#ifdef NEW_POINT
+        register uint64_t j;
         for (j = 0; j < D; j++)
-            initial_actives[i].data[j] = (Marsaglia_random() - 0.5) * length;*/
+            initial_actives[i].data[j] = (Marsaglia_random() - 0.5) * length;
+#else
         initial_actives[i].x = (Marsaglia_random() - 0.5) * length;
         initial_actives[i].y = (Marsaglia_random() - 0.5) * length;
+        initial_actives[i].z = (Marsaglia_random() - 0.5) * length;
+#endif
         INSERT(root, initial_actives[i]);
     }
 
@@ -198,14 +211,19 @@ void test_random(const uint64_t seconds) {
 
     OperationPacket packets[nthreads];
     Point p_min, p_max;
-    /*for (i = 0; i < D; i++) {
+#ifdef NEW_POINT
+    for (i = 0; i < D; i++) {
         p_min.data[i] = root_point.data[i] - 0.5 * length;
         p_max.data[i] = root_point.data[i] + 0.5 * length;
-    }*/
+    }
+#else
     p_min.x = root_point.x - 0.5 * length;
     p_min.y = root_point.y - 0.5 * length;
+    p_min.z = root_point.z - 0.5 * length;
     p_max.x = root_point.x + 0.5 * length;
     p_max.y = root_point.y + 0.5 * length;
+    p_max.z = root_point.z + 0.5 * length;
+#endif
     const uint64_t actives_per_thread = min(100000, initial_population / nthreads);
     for (i = 0; i < nthreads; i++) {
         packets[i] = (OperationPacket) {

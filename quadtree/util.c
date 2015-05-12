@@ -50,7 +50,7 @@ uint32_t Marsaglia_rand() {
  * Returns a random value between 0 (inclusive) and 1 (exclusive).
  */
 double Marsaglia_random() {
-    const uint32_t denom = -1;
+    const uint32_t denom = ((uint32_t)~0) >> 1;
     const uint32_t num = Marsaglia_rand();
     return (num % denom) / (double)denom;
 }
@@ -78,7 +78,7 @@ uint32_t Marsaglia_rands(uint32_t *seed) {
  * Returns a random value between [0, 1).
  */
 double Marsaglia_randoms(uint32_t *seed) {
-    const uint32_t denom = -1;
+    const uint32_t denom = ((uint32_t)~0) >> 1;
     const uint32_t num = Marsaglia_rands(seed);
     return (num % denom) / (double)denom;
 }

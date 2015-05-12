@@ -552,6 +552,7 @@ bool Quadtree_add(Quadtree *node, Point p) {
 
         count--;
         if (!count) {  // passed threshold
+            //printf("Failed to insert (%lf, %lf); locked = %s, validated = %s\n", p.x, p.y, locked ? "true" : "false", validated ? "true" : "false");
             //printf("Failed to insert (%lf, %lf); locked = %s, validated = %s\n", p.data[0], p.data[1], locked ? "true" : "false", validated ? "true" : "false");
             LockSet_unlock(&lockset);  // retry
             return false;
@@ -676,7 +677,7 @@ bool Quadtree_remove_lock(Node *node, Point *p, LockSet *lockset) {
                     LockSet_lock(lockset, parent->parent);
                     LockSet_lock(lockset, parent);
                     LockSet_lock(lockset, node);
-                    
+
                     Node *child = NULL;
                     // only look for child if parent is not root
                     if (Node_valid(parent->parent)) {
@@ -794,7 +795,7 @@ bool Quadtree_remove_helper(LockSet *lockset) {
              *parent  = lockset->nodelist[index + 1],
              *node    = lockset->nodelist[index + 2],
              *child   = lockset->nodelist[index + 3];
- 
+
             node->dirty = true;
 
             // if need to delete parent, also do that now
