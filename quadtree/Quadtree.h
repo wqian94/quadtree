@@ -42,7 +42,7 @@ struct SerialSkipQuadtreeNode_t {
     float64_t length;
     Node *parent;
     Node *up, *down;
-    Node *children[4];
+    Node *children[1 << D];
 };
 
 /*
@@ -68,7 +68,7 @@ struct ParallelSkipQuadtreeNode_t {
     float64_t length;
     Node *parent;
     Node *up, *down;
-    Node *children[4];
+    Node *children[1 << D];
     volatile bool dirty;
     //volatile pthread_mutex_t lock;
     volatile Mutex lock;

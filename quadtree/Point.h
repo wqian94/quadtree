@@ -15,7 +15,7 @@ Point
 #ifdef DIMENSIONS
 #define D DIMENSIONS
 #else
-#define D 2
+#define D 3
 #endif
 
 /**
