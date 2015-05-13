@@ -72,6 +72,9 @@ ifdef DIMENSIONS
 CCFLAGS += -DDIMENSIONS=$(DIMENSIONS)
 endif
 
+# for timeout in benchmarking
+TIMEOUT ?= 15s
+
 # for OFLAG in benchmarking
 OFLAG ?= O3
 
@@ -151,7 +154,7 @@ run-benchmark-%: $(OBJS) compile-% %.o
 	ln benchmarks/bin/test-$(OFLAG)-$(NOW) benchmarks/bin/test-$(OFLAG)-recent
 ifeq ($(RUN), 1)
 	touch benchmarks/results/test-$(OFLAG)-$(NOW).txt
-	$(TM_PRELOAD)targetlines=$$(expr $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') + $(TRIALS));counter=1;while [ $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') -lt $$targetlines ];do echo "[[ Running Trial $$counter ]]";$(PRERUN) timeout 15s taskset -c 0-$$(expr $(NTHREADS) - 1) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);counter=$$(expr $$counter + 1);done
+	$(TM_PRELOAD)targetlines=$$(expr $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') + $(TRIALS));counter=1;while [ $$(wc -l benchmarks/results/test-$(OFLAG)-$(NOW).txt | cut -f 1 -d ' ') -lt $$targetlines ];do echo "[[ Running Trial $$counter ]]";$(PRERUN) timeout $(TIMEOUT) taskset -c 0-$$(expr $(NTHREADS) - 1) $(NUMACTL) benchmarks/bin/test-$(OFLAG)-$(NOW) $(POSTRUN);counter=$$(expr $$counter + 1);done
 endif
 
 .PHONY: run-%

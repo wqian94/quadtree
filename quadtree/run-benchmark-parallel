@@ -14,24 +14,31 @@ function run {
     WRATIO=$3
     INITIAL=$4
     DIMENSIONS=$5
+    TIMEOUTS=""
 
     cd ../benchmark
     make -B $PARALLEL TIME=$TIME WRATIO=$WRATIO NTHREADS=$NTHREADS INITIAL=$INITIAL DIMENSIONS=$DIMENSIONS
     TARGET=benchmarks/benchmark-results/initial-$INITIAL/wratio-$WRATIO/$SUBTYPE-O3/threads-$NTHREADS
     cd ../quadtree
+
     if [ "$SUBTYPE" == "parallel_tm" ] || [ "$SUBTYPE" == "parallel_tm_cqt" ]
     then
         PARALLEL=""
     fi
 
-    echo -e "\nNow running $SUBTYPE, $NTHREADS thread(s), WRATIO=$WRATIO, INITIAL=$INITIAL\n"
+    if [ $INITIAL -eq 10000000 ]
+    then
+        TIMEOUTS="TIMEOUT=20s"
+    fi
 
-    make -B benchmark-$SUBTYPE-O3 $PARALLEL TRIALS=5 NTHREADS=$NTHREADS DIMENSIONS=$DIMENSIONS
+    echo -e "\nNow running $SUBTYPE, $DIMENSIONS dimensions, $NTHREADS thread(s), WRATIO=$WRATIO, INITIAL=$INITIAL\n"
+
+    make -B benchmark-$SUBTYPE-O3 $PARALLEL TRIALS=5 NTHREADS=$NTHREADS DIMENSIONS=$DIMENSIONS $TIMEOUTS
     mkdir -p $TARGET
     mv benchmarks/results/* $TARGET
 }
 
-for d in 2 3
+for d in 3 2
 do
     for i in 1000000 10000000
     do
@@ -40,7 +47,6 @@ do
             for k in {1..16}
             do
                 for m in "parallel_cqt" "parallel_tm_cqt"
-                #for m in "parallel"
                 do
                     run $m $k $j $i $d
                 done
